@@ -1,7 +1,7 @@
 /*******************************************
  *                                         *
  *    Author: Jarrod Cameron (z5210220)    *
- *    Date:   13/10/19 12:35               *
+ *    Date:   13/10/19 12:33               *
  *                                         *
  *******************************************/
 
@@ -10,19 +10,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define check() printf("Here -> %d (%s)\n", __LINE__, __FUNCTION__)
+#include "debug.h"
+#include "user.h"
 
 /* Print usage and exit */
 static void usage (void)
 {
-    fprintf (stderr, "Usage: ./client <server_ip> <server_port>\n");
-    exit (1);
+    fprintf(stderr, "Usage: ./server <server_port> <block_duration> <timeout>\n");
+    exit(1);
 }
 
 int main (int argc, char **argv)
 {
 
-    if (argc != 3) {
+    if (argc != 4) {
         usage ();
     }
 
