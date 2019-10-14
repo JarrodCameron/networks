@@ -16,4 +16,7 @@
 /* Where to store the list of credentials */
 #define CRED_LIST "credentials.txt"
 
+/* The maximium length that a user can send from the command line */
+#define MAX_MSG_LENGTH (1024)
+
 #endif /* CONFIG_H */

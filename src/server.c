@@ -155,6 +155,7 @@ static int dispatch_event (struct connection *conn)
 {
     (void) conn;
     (void) handler;
+    // TODO Dispatch list + fork
     return -1;
 }
 
@@ -176,6 +177,8 @@ static void run_server (void)
             perror("accept: ");
             continue;
         }
+
+        printf("We have a connection!!!\n");
 
         conn = malloc(sizeof(struct connection));
         if (!conn) {
