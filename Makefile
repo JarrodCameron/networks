@@ -7,9 +7,9 @@ BUILDDIR=build
 BINS=server client
 
 CC=gcc
-CFLAGS=-Wall -Wextra -ggdb -I$(INCDIR)
+CFLAGS=-Wall -Wextra -ggdb -I$(INCDIR) -lpthread
 
-SERVER_DEPS=server.o user.o
+SERVER_DEPS=server.o user.o list.o
 CLIENT_DEPS=client.o
 
 .PHONY: all clean
@@ -29,4 +29,4 @@ $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
 clean:
-	rm -rf *.o $(BINS) $(BUILDDIR)
+	rm -rf *.o $(BINS) $(BUILDDIR) cscope.out tags
