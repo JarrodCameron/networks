@@ -5,14 +5,23 @@
  *                                         *
  *******************************************/
 
+#include <arpa/inet.h>
 #include <assert.h>
+#include <netdb.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <stdint.h>
 
 #include "debug.h"
 #include "config.h"
+
+struct {
+    struct sockaddr_in sockaddr;
+} client = {0};
 
 struct command {
     char **tokens;      /* Each argument given by client */
@@ -27,20 +36,47 @@ static void usage (void)
 }
 
 /* Initialise the arguments, return -1 on error */
-static int init_args (char *ip_addr, char *port)
+static int init_args (const char *ip_addr, const char *port)
 {
-    (void) ip_addr;
-    (void) port;
-    // TODO
-    return -1;
+    int dummy;
+    struct sockaddr_in server_address = {0};
+
+    // string to legin ipv4
+    if (inet_pton(AF_INET, ip_addr, &(server_address.sin_addr)) != 1)
+        return -1;
+
+    sscanf(port, "%d", &dummy);
+    if (dummy < 1024)
+        return -1;
+    server_address.sin_port = htons(dummy);
+
+    server_address.sin_family = AF_INET;
+
+    client.sockaddr = server_address;
+
+    return 0;
 }
 
 /* Initialise the connection to the server for communictions.
  * This does NOT count the login process */
 static int init_connection (void)
 {
-    // TODO
-    return -1;
+    int sock, ret;
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0)
+        return -1;
+
+    ret = connect(
+        sock,
+        (struct sockaddr *) &(client.sockaddr),
+        sizeof(client.sockaddr)
+    );
+    if (ret < 0) {
+        close (sock);
+        return -1;
+    }
+    return 0;
 }
 
 /* Attempt to login to the server */
