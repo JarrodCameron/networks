@@ -16,11 +16,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "debug.h"
+#include "header.h"
+#include "util.h"
 #include "config.h"
+#include "clogin.h"
 
 struct {
     struct sockaddr_in sockaddr;
+    int sock;
 } client = {0};
 
 struct command {
@@ -76,49 +79,18 @@ static int init_connection (void)
         close (sock);
         return -1;
     }
+    client.sock = sock;
     return 0;
-}
-
-/* Attempt to login to the server */
-static int attempt_login (void)
-{
-    // TODO
-    return -1;
-}
-
-/* Get the command from the user and split it into tokens */
-static struct command *get_command (void)
-{
-    // TODO
-    return NULL;
-}
-
-/* Free the command from memory */
-static void free_command(struct command *cmd)
-{
-    // TODO
-    (void) cmd;
 }
 
 /* Run the client, this is where the communication to the server takes place.
  * This is logs the client in to the server */
 static void run_client (void)
 {
-    if (attempt_login () < 0)
+    if (attempt_login (client.sock) < 0)
         return;
 
-    struct command *cmd = NULL;
-
-    while (1) {
-        cmd = get_command();
-        if (cmd == NULL) {
-            printf("Please enter a valid string\n");
-        }
-
-        // TODO switch statement for the command
-
-        free_command(cmd);
-    }
+    printf("We have logged in !!!\n");
 }
 
 int main (int argc, char **argv)

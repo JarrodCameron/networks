@@ -19,4 +19,10 @@
 /* The maximium length that a user can send from the command line */
 #define MAX_MSG_LENGTH (1024)
 
+/* The number of login attempts for the user (spec states 3) */
+#define NLOGIN_ATTEMPTS (3)
+
+/* Length of response back to client */
+#define MAX_RESP (128)
+
 #endif /* CONFIG_H */

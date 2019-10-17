@@ -7,20 +7,22 @@ BUILDDIR=build
 BINS=server client
 
 CC=gcc
-CFLAGS=-Wall -Wextra -ggdb -I$(INCDIR) -lpthread
+CFLAGS=-Wall -Wextra -ggdb -I$(INCDIR)
 
-SERVER_DEPS=server.o user.o list.o
-CLIENT_DEPS=client.o
+LDFLAGS=-pthread
+
+SERVER_DEPS=server.o user.o list.o header.o slogin.o
+CLIENT_DEPS=client.o clogin.o
 
 .PHONY: all clean
 
 all: $(BUILDDIR) client server
 
 client: $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
-	$(CC) -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
+	$(CC) $(LDFLAGS) -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
 
 server: $(addprefix $(BUILDDIR)/, $(SERVER_DEPS))
-	$(CC) -o server $(addprefix $(BUILDDIR)/, $(SERVER_DEPS))
+	$(CC) $(LDFLAGS) -o server $(addprefix $(BUILDDIR)/, $(SERVER_DEPS))
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<

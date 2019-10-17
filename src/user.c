@@ -5,13 +5,14 @@
  *                                         *
  *******************************************/
 
+#include <string.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 
 #include "user.h"
-#include "debug.h"
+#include "util.h"
 
 struct user {
     char uname[MAX_UNAME];
@@ -49,4 +50,19 @@ void free_user (struct user *user)
         return;
 
     free(user);
+}
+
+int user_uname_cmp (struct user *user, const char uname[MAX_UNAME])
+{
+    return strncmp(user->uname, uname, MAX_UNAME);
+}
+
+int user_pword_cmp (struct user *user, const char pword[MAX_PWORD])
+{
+    return strncmp(user->pword, pword, MAX_PWORD);
+}
+
+uint32_t user_getid (struct user *user)
+{
+    return user->id;
 }

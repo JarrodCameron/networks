@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "list.h"
+#include "util.h"
 
 struct node {
     struct node *next;
@@ -25,9 +26,10 @@ struct list {
 };
 
 /* Helper functions */
-struct node *init_node (void *item);
+static struct node *init_node (void *item);
+static void rm_node (struct list *list, struct node *node);
 
-struct list *init_list (void)
+struct list *list_init (void)
 {
     struct list *ret = malloc(sizeof(struct list));
     if (!ret)
@@ -75,8 +77,43 @@ void list_free (struct list *list, void (*f)(void*))
     free(list);
 }
 
+void *list_rm (struct list *list, void *item, int (*cmp)(void*, void*))
+{
+    void *ret;
+    if (list->len == 0)
+        return NULL;
+
+    struct node *curr = list->first;
+    while (curr != NULL) {
+        if (cmp(item, curr->item) == 0) {
+            ret = curr->item;
+            rm_node (list, curr);
+            return ret;
+        }
+        curr = curr->next;
+    }
+    return NULL;
+}
+
+/* Simply remove the node from the linked list */
+static void rm_node (struct list *list, struct node *node)
+{
+    if (list->first == node) {
+        list->first = node->next;
+    } else {
+        node->prev->next = node->next;
+    }
+
+    if (list->last == node) {
+        list->last = node->prev;
+    } else {
+        node->next->prev = node->prev;
+    }
+    list->len -= 1;
+}
+
 /* Initialise a node and return it, NULL on error */
-struct node *init_node (void *item)
+static struct node *init_node (void *item)
 {
     struct node *ret = malloc(sizeof(struct node));
     if (!ret)
@@ -84,4 +121,14 @@ struct node *init_node (void *item)
     ret->next = ret->prev = NULL;
     ret->item = item;
     return ret;
+}
+
+void list_traverse (struct list *list, void(*func)(void*, void*), void *arg)
+{
+    struct node *curr;
+    curr = list->first;
+    while (curr != NULL) {
+        func(curr->item, arg);
+        curr = curr->next;
+    }
 }
