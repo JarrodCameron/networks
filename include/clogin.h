@@ -8,13 +8,16 @@
  * This is the counter part to the slogin.* files
  */
 
+#include "status.h"
+
 /* Attempt to login into the server, the sock is the socket (fd) to
  * to communicate to the server (TCP).
  * Return:
- *   1  -> Login successful
- *   0  -> Login failed
- *   <0 -> Error during login process (i.e. closed connection)
+ *   0  -> Success, client is logged on.
+ *   -1 -> Client can't be logged on for what ever reason.
  */
 int attempt_login (int sock);
+
+
 
 #endif /* CLOGIN_H */

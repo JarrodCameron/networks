@@ -9,8 +9,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "list.h"
+#include "synch.h"
 #include "util.h"
 
 struct node {
@@ -23,6 +25,7 @@ struct list {
     struct node *first;
     struct node *last;
     int len;
+    struct lock *lock;
 };
 
 /* Helper functions */
@@ -34,7 +37,15 @@ struct list *list_init (void)
     struct list *ret = malloc(sizeof(struct list));
     if (!ret)
         return NULL;
+
     *ret = (struct list) {0};
+
+    ret->lock = lock_init();
+    if (ret->lock == NULL) {
+        free(ret);
+        return NULL;
+    }
+
     return ret;
 }
 
@@ -48,6 +59,7 @@ int list_add (struct list *list, void *item)
         return -1;
     }
 
+    lock_acquire(list->lock);
     if (list->first == NULL) {
         list->first = node;
         list->last = node;
@@ -57,6 +69,7 @@ int list_add (struct list *list, void *item)
         list->last = node;
     }
     list->len += 1;
+    lock_release(list->lock);
     return 0;
 }
 
@@ -74,24 +87,55 @@ void list_free (struct list *list, void (*f)(void*))
             f(prev->item);
         free(prev);
     }
+    lock_free(list->lock);
     free(list);
 }
 
 void *list_rm (struct list *list, void *item, int (*cmp)(void*, void*))
 {
     void *ret;
-    if (list->len == 0)
+
+    lock_acquire(list->lock);
+    if (list->len == 0) {
+        lock_release(list->lock);
         return NULL;
+    }
 
     struct node *curr = list->first;
     while (curr != NULL) {
         if (cmp(item, curr->item) == 0) {
             ret = curr->item;
             rm_node (list, curr);
+            lock_release(list->lock);
             return ret;
         }
         curr = curr->next;
     }
+    lock_release(list->lock);
+    return NULL;
+}
+
+void *list_get (struct list *list, int (*cmp)(void*, void*), void *arg)
+{
+    struct node *curr;
+
+    lock_acquire(list->lock);
+    if (list->len == 0) {
+        lock_release(list->lock);
+        return NULL;
+    }
+
+    curr = list->first;
+
+    while (curr != NULL) {
+        if (cmp(curr->item, arg) == 0) {
+            lock_release(list->lock);
+            return curr->item;
+        }
+
+        curr = curr->next;
+    }
+    lock_release(list->lock);
     return NULL;
 }
 
@@ -126,9 +170,11 @@ static struct node *init_node (void *item)
 void list_traverse (struct list *list, void(*func)(void*, void*), void *arg)
 {
     struct node *curr;
+    lock_acquire(list->lock);
     curr = list->first;
     while (curr != NULL) {
         func(curr->item, arg);
         curr = curr->next;
     }
+    lock_release(list->lock);
 }

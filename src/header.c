@@ -36,6 +36,12 @@ int get_payload(int sock, struct header **h, void **p)
         return -1;
     }
 
+    if (head->data_len == 0) {
+        *p = NULL;
+        *h = head;
+        return 0;
+    }
+
     payload = malloc(head->data_len);
 
     if (payload == NULL) {
@@ -44,7 +50,6 @@ int get_payload(int sock, struct header **h, void **p)
     }
 
     if (recv(sock, payload, head->data_len, 0) != head->data_len) {
-        // XXX Why the fuck is this receiving zero
         free (head);
         free (payload);
         return -1;
@@ -56,3 +61,37 @@ int get_payload(int sock, struct header **h, void **p)
     return 0;
 }
 
+int send_payload(
+    int sock,
+    enum task_id task_id,
+    uint32_t len,
+    uint32_t client_id,
+    void *payload
+)
+{
+    struct header h = {
+        .task_id = task_id,
+        .client_id = client_id,
+        .data_len = len,
+    };
+
+    uint32_t total_len = sizeof(struct header) + len;
+
+    char *total_payload = malloc(total_len);
+    if (!total_payload)
+        return -1;
+
+    // It's important to send the header and payload at the same time just in
+    // case two or more payloads are sent at the same time.
+    memcpy(total_payload, &h, sizeof(h));
+    memcpy(&total_payload[sizeof(h)], payload, len);
+
+    if (send(sock, total_payload, total_len, 0) != total_len) {
+        free (total_payload);
+        return -1;
+    }
+
+    free (total_payload);
+    return 0;
+
+}

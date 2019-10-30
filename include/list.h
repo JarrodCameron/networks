@@ -1,6 +1,7 @@
 #ifndef LIST_H
 #define LIST_H
 
+/* Defined in list.c */
 struct list;
 
 /* Initialise the list, return NULL on error */
@@ -26,6 +27,14 @@ void *list_rm (struct list *list, void *item, int (*cmp)(void*, void*));
 void list_traverse (
     struct list *list,
     void(*func)(void *item, void *arg),
+    void *arg
+);
+
+/* Return the item in the list where "cmp" returns 0. The "arg" is passed into
+ * "cmp" and the "item" is the item from "list_add". */
+void *list_get (
+    struct list *list,
+    int(*cmp)(void *item, void *arg),
     void *arg
 );
 

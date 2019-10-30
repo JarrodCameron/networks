@@ -5,6 +5,9 @@
  *                                         *
  *******************************************/
 
+/* Unique identifier for the server */
+#define I_AM_SERVER
+
 #include <arpa/inet.h>
 #include <assert.h>
 #include <fcntl.h>
@@ -21,12 +24,12 @@
 
 #include <pthread.h>
 
-#include "util.h"
-#include "user.h"
-#include "list.h"
-#include "config.h"
 #include "header.h"
+#include "logger.h"
 #include "slogin.h"
+#include "status.h"
+#include "user.h"
+#include "util.h"
 
 static struct {
     uint32_t block_duration;    /* How long to block a user */
@@ -51,12 +54,13 @@ static int init_server (void);
 static void free_users (void);
 static int dispatch_event (struct connection *conn);
 static struct connection *init_conn (void);
-static void *login_handle (void *);
 static void free_conn (struct connection *conn);
+static void *init_conn_handle (void *);
 
-static void *(*handler[])(void*) = {
-    [client_login_attempt] = login_handle,
-    [server_login_reply]   = NULL,
+// This will be used later
+UNUSED static void *(*handler[])(void*) = {
+    [client_init_conn]     = init_conn_handle,
+    [server_init_conn]     = NULL,
 };
 
 /* Print usage and exit */
@@ -66,11 +70,94 @@ static void usage (void)
     exit(1);
 }
 
+static void *init_conn_handle (void *arg)
+{
+
+    struct header *head;
+    struct cic_payload *cic;
+    int ret;
+    struct user *curr_user = NULL;
+    struct connection *conn = arg;
+    enum status_code code;
+
+    code = login_conn (conn->sock, server.users, conn->payload, &curr_user);
+    while (code == bad_uname) {
+        ret = get_payload(
+            conn->sock,
+            &head,
+            (void *) &cic
+        );
+        if (ret < 0) {
+            elogs("Error: Internal server error\n");
+            free_conn(conn);
+            return NULL;
+        }
+        free (head);
+        code = login_conn (conn->sock, server.users, cic, &curr_user);
+        free (cic);
+    }
+
+    if (code == init_failed) {
+        elogs("Communication error\n");
+        free_conn(conn);
+        return NULL;
+    }
+
+    assert(curr_user != NULL);
+
+    printf("We have a valid username\n");
+
+    char *user_name = user_get_uname(curr_user);
+    if (user_name == NULL) {
+        elogs("Failed to alloc buffer\n");
+        free_conn(conn);
+        return NULL;
+    }
+
+    code = auth_user(conn->sock, curr_user);
+    switch (code) {
+        case comms_error:
+            elogs("Failed to communicate to user: \"%s\"\n", user_name);
+            free_conn(conn);
+            free (user_name);
+            return NULL;
+
+        case user_blocked:
+            elogs("User blocked: \"%s\"\n", user_name);
+            free (user_name);
+            free_conn(conn);
+            return NULL;
+
+        case init_success:
+            logs("User logged in: \"%s\"\n", user_name);
+            free (user_name);
+            free_conn (conn);
+            break;
+
+        case already_on:
+            logs("User logged in twice: \"%s\"\n", user_name);
+            free (user_name);
+            free_conn (conn);
+            return NULL;
+
+        default:
+            free(user_name);
+            free_conn (conn);
+            panic("Invalid response while authenticating user, received \"%s\"(%d)\n",
+                code_to_str(code),
+                code
+            );
+
+    }
+
+    return NULL;
+}
+
 /* Initialise the users list from the CRED_LIST file */
 static int init_users (void)
 {
-    char uname[128];
-    char pword[128];
+    char uname[MAX_UNAME];
+    char pword[MAX_PWORD];
 
     server.users = list_init();
     if (server.users == NULL)
@@ -79,7 +166,9 @@ static int init_users (void)
     FILE *f = fopen(CRED_LIST, "r");
 
     while (fscanf(f, "%s %s", uname, pword) == 2) {
+
         struct user *user = init_user(uname, pword);
+
         if (user == NULL)
             goto init_users_fail;
 
@@ -158,12 +247,17 @@ static void free_users (void)
     list_free(server.users, (void*) free_user);
 }
 
+static int ptr_cmp (void *a, void *b)
+{
+    return (a - b);
+}
+
 /* Probe handler list to dispatch even and spawn new thread */
 static int dispatch_event (struct connection *conn)
 {
 
-    int id = conn->head->task_id;
-    if (id > (int)ARRSIZE(handler) || handler[id] == NULL)
+    enum task_id id = conn->head->task_id;
+    if (id != client_init_conn)
         return -1;
 
     pthread_t *tid = malloc(sizeof(pthread_t));
@@ -176,7 +270,8 @@ static int dispatch_event (struct connection *conn)
         return -1;
     }
 
-    if (pthread_create(tid, NULL, handler[id], conn) != 0) {
+    if (pthread_create(tid, NULL, init_conn_handle, conn) != 0) {
+        list_rm(server.threads, tid, ptr_cmp);
         free (tid);
         return -1;
     }
@@ -195,23 +290,8 @@ static struct connection *init_conn (void)
 
     // To indicate invalid socket
     conn->sock = -1;
+
     return conn;
-}
-
-/* Handle login attempts by the user, this runs in a seperate thread to the
- * main server */
-static void *login_handle(void *arg)
-{
-    struct connection *conn = arg;
-    struct cla_payload *cla = conn->payload;
-
-    if (server_auth (conn->sock, server.users, cla) < 0) {
-        fprintf(stderr, "Error authenticating user\n");
-    } else {
-        // Ideally we would start a loops to listen the future messages from the client.
-    }
-
-    return NULL;
 }
 
 /* Free the connection and it's state, close any fd's */
@@ -251,7 +331,7 @@ static void run_server (void)
             continue;
         }
 
-        printf("We have a connection!!!\n");
+        logs("We have a connection!!!\n");
 
         conn = init_conn ();
         if (conn == NULL) {
@@ -266,7 +346,7 @@ static void run_server (void)
         }
 
         if (dispatch_event (conn) < 0) {
-            fprintf(stderr, "Failed to server request\n");
+            elogs("Failed to server request\n");
             free_conn(conn);
             continue;
         }
@@ -291,13 +371,13 @@ int main (int argc, char **argv)
     }
 
     if (init_users () < 0) {
-        fprintf(stderr, "Failed to initialise users list\n");
-        fprintf(stderr, "Does \"" CRED_LIST "\" exist?\n");
+        elogs("Failed to initialise users list\n");
+        elogs("Does \"" CRED_LIST "\" exist?\n");
         usage();
     }
 
     if (init_server () < 0) {
-        fprintf(stderr, "Failed to initialise server\n");
+        elogs("Failed to initialise server\n");
         free_users();
         return 1;
     }

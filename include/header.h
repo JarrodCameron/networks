@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "config.h"
+#include "status.h"
 
 /**************************************************************************
  * The header MUST be sent on every transmissions. It communicates to the *
@@ -16,8 +17,10 @@
  **************************************************************************/
 
 enum task_id {
-    client_login_attempt = 1,   /* Client attempting to login */
-    server_login_reply   = 2,   /* Server replying to client_login_attempt */
+    client_init_conn     = 1,   /* The client to init conn to server */
+    server_init_conn     = 2,   /* Server reply when initialising connection */
+    client_login_attempt = 3,   /* Client attempting to login */
+    server_login_attempt = 4,   /* Reply to client logging in */
 };
 
 struct header {
@@ -32,25 +35,36 @@ struct header {
  * shared to preferve the order of the bytes when being sent/received      *
  ***************************************************************************/
 
-struct cla_payload {            /* task = client_login_attempt */
-    char username[MAX_UNAME];   /* Field to send the username */
-    char password[MAX_PWORD];   /* Field to send the password */
+struct sic_payload {            /* task = server_init_conn */
+    enum status_code code;
 };
 
-struct slr_payload {
-    enum {
-        successful,             /* Auth was valid, client logged in */
-        invalid_creds,          /* Auth failed due to bad username/password */
-    } resp;                     /* ID of a response given by the server */
-    union {
-        uint32_t client_id;     /* Unique id for user (resp==successful) */
-        int nth_attempt;        /* n attempts so far (resp=invalid_creds) */
-    };
+struct cic_payload {            /* task = client_init_conn */
+    char username[MAX_UNAME];   /* Clients username */
+};
+
+struct cla_payload {            /* task = client_login_attempt */
+    char password[MAX_PWORD];   /* Clients password */
+};
+
+struct sla_payload {            /* task = server_login_attempt */
+    enum status_code code;      /* status back to the user */
 };
 
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return -1 on error, zero on success */
 int get_payload(int sock, struct header **head, void **payload);
+
+/* Send the payload via the socket. This simplifies the process of constructing
+ * the header, sending the header, checking return type, sending payload, and
+ * checking return value. Return -1 on error */
+int send_payload(
+    int sock,
+    enum task_id task_id,
+    uint32_t len,
+    uint32_t client_id,
+    void *payload
+);
 
 #endif /* HEADER_H */

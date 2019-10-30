@@ -19,10 +19,18 @@
 /* The maximium length that a user can send from the command line */
 #define MAX_MSG_LENGTH (1024)
 
-/* The number of login attempts for the user (spec states 3) */
-#define NLOGIN_ATTEMPTS (3)
-
 /* Length of response back to client */
 #define MAX_RESP (128)
+
+/* The maximium length of a commannd that can be entered by the user */
+#define MAX_COMMAND (1024)
+
+/* Uncomment the following line to enable the loggin feature. Currently logging
+ * output to the console is disabled, hence the comment */
+//#define DISABLE_LOGGING
+
+/* this is the number of login attempts before the user gets blocked,
+ * spec saya three. */
+#define NLOGIN_ATTEMPTS 3
 
 #endif /* CONFIG_H */

@@ -4,19 +4,19 @@
 INCDIR=include
 SRCDIR=src
 BUILDDIR=build
-BINS=server client
+BINS=client server
 
 CC=gcc
-CFLAGS=-Wall -Wextra -ggdb -I$(INCDIR)
+CFLAGS=-Wall -Wextra -g3 -ggdb -I$(INCDIR)
 
 LDFLAGS=-pthread
 
-SERVER_DEPS=server.o user.o list.o header.o slogin.o
-CLIENT_DEPS=client.o clogin.o
+SERVER_DEPS=server.o user.o list.o header.o slogin.o logger.o util.o synch.o status.o
+CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o
 
 .PHONY: all clean
 
-all: $(BUILDDIR) client server
+all: $(BUILDDIR) $(BINS)
 
 client: $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
 	$(CC) $(LDFLAGS) -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
@@ -31,4 +31,4 @@ $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
 clean:
-	rm -rf *.o $(BINS) $(BUILDDIR) cscope.out tags
+	rm -rf $(BINS) $(BUILDDIR) vgcore.*

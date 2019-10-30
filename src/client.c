@@ -5,6 +5,9 @@
  *                                         *
  *******************************************/
 
+/* Unique identifies for the client */
+#define I_AM_CLIENT
+
 #include <arpa/inet.h>
 #include <assert.h>
 #include <netdb.h>
@@ -16,19 +19,31 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "clogin.h"
+#include "config.h"
 #include "header.h"
 #include "util.h"
-#include "config.h"
-#include "clogin.h"
 
 struct {
     struct sockaddr_in sockaddr;
     int sock;
 } client = {0};
 
+enum cmd_id {               /* The command to be done by the user, for what
+                             * each of these do read the spec (p3/p4) */
+    cmd_message      = 1,   /* message <user> <message> */
+    cmd_breadcase    = 2,   /* broadcase <message> */
+    cmd_whoelse      = 3,   /* whoelse */
+    cmd_whoelsesince = 4,   /* whoelsesince <time> */
+    cmd_block        = 5,   /* block <user> */
+    cmd_unblock      = 6,   /* unblock <user> */
+    cmd_logout       = 7,   /* logout */
+};
+
 struct command {
     char **tokens;      /* Each argument given by client */
     uint32_t ntokens;   /* Number of words in command */
+    enum cmd_id cmd_id; /* The command the user want to do */
 };
 
 /* Print usage and exit */
@@ -87,10 +102,33 @@ static int init_connection (void)
  * This is logs the client in to the server */
 static void run_client (void)
 {
-    if (attempt_login (client.sock) < 0)
+    if (attempt_login(client.sock) < 0)
         return;
 
-    printf("We have logged in !!!\n");
+    while (1) {
+        char cmd[MAX_COMMAND] = {0};
+
+        printf("> ");
+        fflush(stdout);
+
+        int ret = read(0, cmd, MAX_COMMAND-1);
+
+        if (ret <= 1)
+            continue;
+
+        if (cmd[ret-1] == '\n' || cmd[ret-1] == '\r')
+            cmd[ret-1] = '\0';
+
+        printf("cmd: %s\n", cmd);
+
+        /*
+         * /------------------------------------------------------------------\
+         * |TODO, this is where we should parse the input, however the server |
+         * |needs more work before we can do this.                            |
+         * \------------------------------------------------------------------/
+         */
+    }
+
 }
 
 int main (int argc, char **argv)
