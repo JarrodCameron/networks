@@ -22,47 +22,40 @@
 #include "util.h"
 
 /* Helper functions */
-static enum status_code conn_to_server (int sock, char uname[MAX_UNAME]);
-static int handle_code (enum status_code code);
+static enum status_code deploy_uname(int sock, char uname[MAX_UNAME]);
+static enum status_code deploy_pword(int sock, char pword[MAX_PWORD]);
 static void get_uname (char buff[MAX_UNAME]);
 static void get_pword (char buff[MAX_PWORD]);
+static enum status_code attempt_uname(int sock);
+static enum status_code attempt_pword(int sock);
+static void print_code_msg(enum status_code code);
 
-/* Just initialise the connection to the server. This doesn't involve TCP but
- * is an application layer protocol. This will send the header with
- * task_id = client_init_conn. */
-static enum status_code conn_to_server (int sock, char uname[MAX_UNAME])
+/* Simple sends the username to the server and returns the code returned */
+static enum status_code deploy_uname(int sock, char uname[MAX_UNAME])
 {
-    int ret;
-    struct cic_payload cic = {0};
-    struct sic_payload *sic = NULL;
-    struct header *header;
+    struct sua_payload sua = {0};
 
-    memcpy(cic.username, uname, MAX_UNAME);
-
-    ret = send_payload(
-        sock,
-        client_init_conn,
-        sizeof(cic),
-        0, // ignored
-        &cic
-    );
-    if (ret < 0)
+    if (send_payload_cua(sock, uname) < 0)
         return init_failed;
 
-    ret = get_payload(
-        sock,
-        &header,
-        (void*) &sic
-    );
-    if (ret < 0)
+    if (recv_payload_sua(sock, &sua) < 0)
         return init_failed;
 
-    enum status_code code = sic->code;
+    return sua.code;
+}
 
-    free(header);
-    free(sic);
+/* Simple sends the password to the server and returns the code returned */
+static enum status_code deploy_pword(int sock, char pword[MAX_PWORD])
+{
+    struct spa_payload spa = {0};
 
-    return code;
+    if (send_payload_cpa(sock, pword) < 0)
+        return init_failed;
+
+    if (recv_payload_spa(sock, &spa) < 0)
+        return init_failed;
+
+    return spa.code;
 }
 
 /* Prompt the user for their username */
@@ -104,102 +97,82 @@ static void get_pword (char buff[MAX_PWORD])
         buff[ret-1] = '\0';
 }
 
-/* Authenticate the user with their password */
-static enum status_code pword_auth(int sock)
-{
-    struct cla_payload cla = {0};
-    struct sla_payload *sla = NULL;
-    struct header *head = NULL;
-    enum status_code code;
-    int ret;
-
-    get_pword(cla.password);
-
-    ret = send_payload(
-        sock,
-        client_login_attempt,
-        sizeof(struct cla_payload),
-        0, // ignored
-        &cla
-    );
-    if (ret < 0)
-        return init_failed;
-
-    ret = get_payload (
-        sock,
-        &head,
-        (void **) &sla
-    );
-    if (ret < 0)
-        return init_failed;
-
-    code = sla->code;
-
-    free (head);
-    free (sla);
-
-    return code;
-}
-
-int attempt_login (int sock)
+/* Simply handles the username check between the client and server until
+ * success or a problem (blocked, bad password, etc).
+ */
+static enum status_code attempt_uname(int sock)
 {
     enum status_code code;
     char uname[MAX_UNAME] = {0};
 
     get_uname(uname);
-    code = conn_to_server (sock, uname);
-    if (code == init_failed) {
-        return handle_code (code);
-    }
-
+    code = deploy_uname(sock, uname);
     while (code == bad_uname) {
         printf("Invalid username!\n");
         get_uname(uname);
-        code = conn_to_server (sock, uname);
+        code = deploy_uname(sock, uname);
     }
-
-    if (code != init_success) {
-        return handle_code (code);
-    }
-
-    code = pword_auth(sock);
-    while (code == bad_pword) {
-        printf("Invalid password!\n");
-        code = pword_auth(sock);
-    }
-
-    return handle_code (code);
+    return code;
 }
 
-/* This will handle what do do with the code after the logging is is done,
- * mostly used to display error messages and welcome messages
- *   0 -> Sucess
- *  -1 -> The client sould kill itself
- * */
-static int handle_code (enum status_code code)
+/* Simply handles the password check between the client and server until
+ * success or a problem (blocked, bad password, etc).
+ */
+static enum status_code attempt_pword(int sock)
+{
+    enum status_code code;
+    char pword[MAX_PWORD] = {0};
+
+    get_pword(pword);
+    code = deploy_pword(sock, pword);
+    while (code == bad_pword) {
+        printf("Invalid password!\n");
+        get_pword(pword);
+        code = deploy_pword(sock, pword);
+    }
+    return code;
+}
+
+/* Print the status code in a human readable format */
+static void print_code_msg(enum status_code code)
 {
     switch (code) {
-        case init_success:
-            banner_logged_in();
-            return 0;
+        case user_blocked:
+            printf("You are blocked!\n");
+            break;
+
+        case already_on:
+            printf("You are already logged on!\n");
+            break;
 
         case comms_error:
         case init_failed:
             printf("Communication error between client and server\n");
-            return -1;
-
-        case user_blocked:
-            printf("Sorry mate, your'e blocked!\n");
-            return -1;
-
-        case already_on:
-            printf("It appears you are already logged on\n");
-            printf("You can only be logged on once!\n");
-            return -1;
+            break;
 
         default:
-            panic("Unkown code: \"%s\"(%d)\n", code_to_str(code), code);
+            panic("Received bad code: \"%s\"(%d)\n", code_to_str(code), code);
     }
 }
 
+int attempt_login (int sock)
+{
+    enum status_code code;
 
+    code = attempt_uname(sock);
+    if (code != init_success) {
+        printf("Failed to log in: ");
+        print_code_msg(code);
+        return -1;
+    }
+
+    code = attempt_pword(sock);
+    if (code != init_success) {
+        printf("Failed to log in: ");
+        print_code_msg(code);
+        return -1;
+    }
+
+    banner_logged_in();
+    return 0;
+}

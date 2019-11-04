@@ -1,4 +1,4 @@
-# COMP3111 - Networks Major Assignment
+#COMP3111 - Networks Major Assignment
 
 ## Important Milestones
 
@@ -7,3 +7,23 @@
 |--------------|------|
 | Client login | 1099 |
 |--------------|------|
+| Block on invalid passwords | 1913 |
+|--------------|------|
+
+
+
+
+
+SERVER |         <-- cic| CLIENT
+       |sic -->         |
+       |         <-- cua|
+       |sua -->         |
+       |                |
+       |                |
+       |                |
+       |                |
+       |                |
+       |                |
+       |                |
+       |                |
+       |                |

@@ -42,8 +42,7 @@ static struct {
 
 struct connection {
     int sock;                   /* Socket for this connection */
-    struct header *head;        /* Information about the client/task */
-    void *payload;              /* Data deilivered by client */
+    struct cic_payload cic;     /* Data deilivered by client */
 };
 
 /* Helper functions */
@@ -55,101 +54,34 @@ static void free_users (void);
 static int dispatch_event (struct connection *conn);
 static struct connection *init_conn (void);
 static void free_conn (struct connection *conn);
-static void *init_conn_handle (void *);
-
-// This will be used later
-UNUSED static void *(*handler[])(void*) = {
-    [client_init_conn]     = init_conn_handle,
-    [server_init_conn]     = NULL,
-};
 
 /* Print usage and exit */
 static void usage (void)
 {
-    fprintf(stderr, "Usage: ./server <server_port> <block_duration> <timeout>\n");
+    fprintf(stderr,
+        "Usage: ./server <server_port> <block_duration> <timeout>\n"
+    );
     exit(1);
 }
 
-static void *init_conn_handle (void *arg)
+/* This is where the new thread starts.
+ * This will do the username and password authentication for the server.
+ * If the user can't be authenicated the thread is killed */
+static void *thread_landing (void *arg)
 {
-
-    struct header *head;
-    struct cic_payload *cic;
-    int ret;
-    struct user *curr_user = NULL;
+    struct user *user;
     struct connection *conn = arg;
-    enum status_code code;
 
-    code = login_conn (conn->sock, server.users, conn->payload, &curr_user);
-    while (code == bad_uname) {
-        ret = get_payload(
-            conn->sock,
-            &head,
-            (void *) &cic
-        );
-        if (ret < 0) {
-            elogs("Error: Internal server error\n");
-            free_conn(conn);
-            return NULL;
-        }
-        free (head);
-        code = login_conn (conn->sock, server.users, cic, &curr_user);
-        free (cic);
-    }
-
-    if (code == init_failed) {
-        elogs("Communication error\n");
-        free_conn(conn);
+    // ACK the connection is good for communication
+    if (send_payload_sic(conn->sock, init_success) < 0)
         return NULL;
-    }
 
-    assert(curr_user != NULL);
-
-    printf("We have a valid username\n");
-
-    char *user_name = user_get_uname(curr_user);
-    if (user_name == NULL) {
-        elogs("Failed to alloc buffer\n");
-        free_conn(conn);
+    user = auth_user(conn->sock, server.users);
+    if (user == NULL)
         return NULL;
-    }
 
-    code = auth_user(conn->sock, curr_user);
-    switch (code) {
-        case comms_error:
-            elogs("Failed to communicate to user: \"%s\"\n", user_name);
-            free_conn(conn);
-            free (user_name);
-            return NULL;
-
-        case user_blocked:
-            elogs("User blocked: \"%s\"\n", user_name);
-            free (user_name);
-            free_conn(conn);
-            return NULL;
-
-        case init_success:
-            logs("User logged in: \"%s\"\n", user_name);
-            free (user_name);
-            free_conn (conn);
-            break;
-
-        case already_on:
-            logs("User logged in twice: \"%s\"\n", user_name);
-            free (user_name);
-            free_conn (conn);
-            return NULL;
-
-        default:
-            free(user_name);
-            free_conn (conn);
-            panic("Invalid response while authenticating user, received \"%s\"(%d)\n",
-                code_to_str(code),
-                code
-            );
-
-    }
-
+    (void) user;
+    free_conn(conn);
     return NULL;
 }
 
@@ -256,10 +188,6 @@ static int ptr_cmp (void *a, void *b)
 static int dispatch_event (struct connection *conn)
 {
 
-    enum task_id id = conn->head->task_id;
-    if (id != client_init_conn)
-        return -1;
-
     pthread_t *tid = malloc(sizeof(pthread_t));
     if (tid == NULL)
         return -1;
@@ -270,7 +198,7 @@ static int dispatch_event (struct connection *conn)
         return -1;
     }
 
-    if (pthread_create(tid, NULL, init_conn_handle, conn) != 0) {
+    if (pthread_create(tid, NULL, thread_landing, conn) != 0) {
         list_rm(server.threads, tid, ptr_cmp);
         free (tid);
         return -1;
@@ -303,12 +231,6 @@ static void free_conn (struct connection *conn)
     if (conn->sock >= 0)
         close (conn->sock);
 
-    if (conn->head)
-        free (conn->head);
-
-    if (conn->payload)
-        free(conn->payload);
-
     free(conn);
 }
 
@@ -340,7 +262,7 @@ static void run_server (void)
         }
         conn->sock = sock;
 
-        if (get_payload(conn->sock, &(conn->head), &(conn->payload)) < 0) {
+        if (recv_payload_cic(conn->sock, &(conn->cic)) < 0) {
             free_conn(conn);
             continue;
         }

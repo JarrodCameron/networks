@@ -5,7 +5,7 @@
 
 # Tmux window names
 SESSION="Networks"
-WINNAME="block_bad_pwords"
+WINNAME="user_timeout"
 
 # Args for client/server
 SERVER_PORT="1024"

@@ -16,7 +16,7 @@ CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o
 
 .PHONY: all clean
 
-all: $(BUILDDIR) $(BINS)
+all: clean $(BUILDDIR) $(BINS)
 
 client: $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
 	$(CC) $(LDFLAGS) -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))

@@ -19,8 +19,12 @@
 enum task_id {
     client_init_conn     = 1,   /* The client to init conn to server */
     server_init_conn     = 2,   /* Server reply when initialising connection */
-    client_login_attempt = 3,   /* Client attempting to login */
-    server_login_attempt = 4,   /* Reply to client logging in */
+
+    client_uname_auth    = 3,   /* Client authenticating their username */
+    server_uname_auth    = 4,   /* Server replying to client_uname_auth */
+
+    client_pword_auth    = 5,   /* Client authenticating their password */
+    server_pword_auth    = 6,   /* Server replying to client_pword_auth */
 };
 
 struct header {
@@ -35,26 +39,34 @@ struct header {
  * shared to preferve the order of the bytes when being sent/received      *
  ***************************************************************************/
 
-struct sic_payload {            /* task = server_init_conn */
-    enum status_code code;
+struct cic_payload {            /* task = client_init_conn */
+    enum status_code code;      /* First code, should be init_success */
 };
 
-struct cic_payload {            /* task = client_init_conn */
+struct sic_payload {            /* task = server_init_conn */
+    enum status_code code;      /* First code, should be init_success */
+};
+
+struct cua_payload {            /* task = client_uname_auth */
     char username[MAX_UNAME];   /* Clients username */
 };
 
-struct cla_payload {            /* task = client_login_attempt */
-    char password[MAX_PWORD];   /* Clients password */
+struct sua_payload {            /* task = server_uname_auth */
+    enum status_code code;      /* Code returned back the to client */
 };
 
-struct sla_payload {            /* task = server_login_attempt */
-    enum status_code code;      /* status back to the user */
+struct cpa_payload {            /* task = client_pword_auth */
+    char password[MAX_PWORD];   /* The client's password */
+};
+
+struct spa_payload {            /* task = server_pword_auth */
+    enum status_code code;      /* The code when authenticating the user */
 };
 
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return -1 on error, zero on success */
-int get_payload(int sock, struct header **head, void **payload);
+int get_payload(int sock, struct header *head, void **payload);
 
 /* Send the payload via the socket. This simplifies the process of constructing
  * the header, sending the header, checking return type, sending payload, and
@@ -66,5 +78,29 @@ int send_payload(
     uint32_t client_id,
     void *payload
 );
+
+/****************************************************************************
+ * Everything below this line is for sending/receiving specific payloads.   *
+ * Return 0 on success, -1 on error. This makes life easier for sending and *
+ * receiving specific payloads.                                             *
+ ****************************************************************************/
+
+int send_payload_cic(int sock, enum status_code code);
+int recv_payload_cic(int sock, struct cic_payload *cic);
+
+int send_payload_sic(int sock, enum status_code code);
+int recv_payload_sic(int sock, struct sic_payload *sic);
+
+int send_payload_cua(int sock, const char uname[MAX_UNAME]);
+int recv_payload_cua(int sock, struct cua_payload *cua);
+
+int send_payload_sua(int sock, enum status_code code);
+int recv_payload_sua(int sock, struct sua_payload *sua);
+
+int send_payload_cpa(int sock, const char pword[MAX_PWORD]);
+int recv_payload_cpa(int sock, struct cpa_payload *cpa);
+
+int send_payload_spa(int sock, enum status_code code);
+int recv_payload_spa(int sock, struct spa_payload *spa);
 
 #endif /* HEADER_H */

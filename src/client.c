@@ -75,6 +75,23 @@ static int init_args (const char *ip_addr, const char *port)
     return 0;
 }
 
+/* This handles the application layer protocol to the server */
+static int conn_to_server (int sock)
+{
+    struct sic_payload sic = {0};
+
+    if (send_payload_cic(sock, init_success) < 0)
+        return -1;
+
+    if (recv_payload_sic(sock, &sic) < 0)
+        return -1;
+
+    if (sic.code != init_success)
+        return -1;
+
+    return 0;
+}
+
 /* Initialise the connection to the server for communictions.
  * This does NOT count the login process */
 static int init_connection (void)
@@ -94,6 +111,12 @@ static int init_connection (void)
         close (sock);
         return -1;
     }
+
+    if (conn_to_server(sock) < 0) {
+        close (sock);
+        return -1;
+    }
+
     client.sock = sock;
     return 0;
 }

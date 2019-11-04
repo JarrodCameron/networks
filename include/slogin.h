@@ -10,21 +10,10 @@
 #include "status.h"
 #include "user.h"
 
-/* This function will simply do all of the stuff to check the username.
- * If NULL is returned the current thread may quit. If the user is valid then
- * the current user is returned in curr_user and the appropriate status code
- * is returned. */
-enum status_code login_conn
-(
-    int sock,
-    struct list *users,
-    struct cic_payload *cic,
-    struct user **curr_user
-);
-
-/* This function is used to authenticate the user simply by asking for the
- * password. This handles any conditions associated with logging in the user
- * (i.e. blocking on N invalid attempts) */
-enum status_code auth_user(int sock, struct user *user);
+/* This function intiialises the connection to the client from the server's
+ * perspective. Returnt the logged in user on success, return NULL if the user
+ * can not be authenticated. The calling thread will quit when NULL is
+ * returned. The list is needed to query existing users in the database */
+struct user *auth_user(int sock, struct list *users);
 
 #endif /* SLOGIN_H */

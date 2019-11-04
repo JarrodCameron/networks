@@ -41,6 +41,9 @@ char *user_get_uname(struct user *user);
  * -1 on error (e.g. user already logged in) */
 enum status_code user_log_on(struct user *user);
 
+/* Log of the user. If the user is already logged off then do nothing */
+void user_log_off(struct user *user);
+
 /* Return true if the user is logged on, false if the user is not logged on */
 bool user_is_logged_on(struct user *user);
 

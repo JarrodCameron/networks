@@ -22,107 +22,87 @@
 #include "user.h"
 #include "util.h"
 
-/* Tell the user the responce depending on their username (i.e. they might be
- * blocked, have a bad username, or valid username */
-static int init_conn (int sock, struct user *user)
+/* Query the user for their user name. Return the "user" if the user is legit
+ * otherwise return NULL. NULL is also returned in case user is blocked,
+ * already logged in, etc */
+static struct user *probe_user(int sock, struct list *users)
 {
-    int ret;
-    struct sic_payload sic = {0};
+    struct user *user;
+    struct cua_payload cua;
 
-    if (user == NULL) {
-        sic.code = bad_uname;
-    } else if (user_is_logged_on(user) == true) {
-        sic.code = already_on;
-    } else if (user_is_blocked(user) == true) {
-        sic.code = user_blocked;
-    } else {
-        sic.code = init_success;
-    }
+    user = NULL;
+    while (1) {
+        cua = (struct cua_payload) {0};
+        if (recv_payload_cua(sock, &cua) < 0)
+            return NULL;
+        user = user_get_by_name(users, cua.username);
 
-    ret = send_payload (
-        sock,
-        server_init_conn,
-        sizeof(sic),
-        0, // ignored
-        (void *) &sic
-    );
-    return (ret < 0) ? ret : 0;
-}
-
-enum status_code login_conn
-(
-    int sock,
-    struct list *users,
-    struct cic_payload *cic,
-    struct user **curr_user
-)
-{
-    struct user *user = user_get_by_name(users, cic->username);
-    int ret = init_conn(sock, user);
-    if (ret < 0)
-        return init_failed;
-
-    if (user == NULL)
-        return bad_uname;
-
-    *curr_user = user;
-    return init_success;
-}
-
-/* This is a helper function to reply to the client regarding the response to
- * their query */
-static int send_sla(int sock, enum status_code code)
-{
-    int ret;
-    struct sla_payload sla = {
-        .code = code,
+        if (user != NULL) {
+            return (send_payload_sua(sock, init_success) < 0) ? NULL : user;
+        } else if (send_payload_sua(sock, bad_uname) < 0) {
+            return NULL;
+        }
     };
-
-    ret = send_payload(
-        sock,
-        server_login_attempt,
-        sizeof (struct sla_payload),
-        0, // ignored
-        &sla
-    );
-    return ret;
 }
 
-enum status_code auth_user(int sock, struct user *user)
+/* Probe the user for credentials and sign in the user */
+static int sign_user(int sock, struct user *user)
 {
-    assert (user != NULL);
-
-    int nattempts;
-    int ret;
-    struct header *head;
-    struct cla_payload *cla;
+    char *name;
     enum status_code code;
+    struct cpa_payload cpa;
 
-    for (nattempts = 0; nattempts < NLOGIN_ATTEMPTS; nattempts++) {
+    for (int i = 0; i < NLOGIN_ATTEMPTS; i++) {
+        cpa = (struct cpa_payload) {0};
 
-        ret = get_payload(sock, &head, (void **) &cla);
-        if (ret < 0)
-            return comms_error;
+        if (recv_payload_cpa(sock, &cpa) < 0)
+            return -1;
 
-        if (user_pword_cmp(user, cla->password) == 0) {
+        if (user_pword_cmp(user, cpa.password) == 0) {
             code = user_log_on(user);
-            ret = send_sla(sock, code);
-            bfree(2, head, cla);
-            return code;
-        }
-        if (nattempts < NLOGIN_ATTEMPTS - 1) {
-            if (send_sla(sock, bad_pword) < 0) {
-                bfree(2, head, cla);
-                return comms_error;
+            if (send_payload_spa(sock, code) < 0) {
+                user_log_off(user);
+                return -1;
             }
+            return (code == init_success) ? (0) : (-1);
+        } else if (i < NLOGIN_ATTEMPTS - 1) {
+            if (send_payload_spa(sock, bad_pword) < 0)
+                return -1;
         }
-        bfree(2, head, cla);
+
     }
 
-    if (send_sla(sock, user_blocked) < 0)
-        return comms_error;
+    if (user_is_logged_on(user) == true) {
+        send_payload_spa(sock, already_on);
+    } else {
+        send_payload_spa(sock, user_blocked);
+        user_set_blocked(user);
 
-    user_set_blocked(user);
+        name = user_get_uname(user);
+        printf("User blocked: \"%s\"\n", name);
+        free(name);
+    }
 
-    return user_blocked;
+    return -1;
+}
+
+struct user *auth_user(int sock, struct list *users)
+{
+    struct user *user;
+    char *name;
+
+    user = probe_user(sock, users);
+    if (user == NULL) {
+        logs("Failed to initialising connection, closing thread\n");
+        return NULL;
+    }
+
+    if (sign_user(sock, user) < 0)
+        return NULL;
+
+    name = user_get_uname(user);
+    logs("User logged in: \"%s\"\n", name);
+    free(name);
+
+    return user;
 }

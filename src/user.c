@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "list.h"
 #include "synch.h"
@@ -24,6 +25,7 @@ struct user {
     uint32_t id;
     bool blocked;
     bool logged_on;
+    time_t log_time;    /* Epoch time since user logged on */
     struct lock *lock;
 };
 
@@ -158,16 +160,26 @@ enum status_code user_log_on(struct user *user)
     enum status_code ret;
     assert(user);
     lock_acquire(user->lock);
+
     if (user->blocked == true) {
         ret = user_blocked;
     } else if (user->logged_on == true) {
         ret = already_on;
     } else {
         user->logged_on = true;
+        user->log_time = time(NULL);
         ret = init_success;
     }
+
     lock_release(user->lock);
     return ret;
+}
+
+void user_log_off(struct user *user)
+{
+    lock_acquire(user->lock);
+    user->logged_on = false;
+    lock_release(user->lock);
 }
 
 bool user_is_logged_on(struct user *user)
