@@ -12,7 +12,7 @@ CFLAGS=-Wall -Wextra -g3 -ggdb -I$(INCDIR)
 LDFLAGS=-pthread
 
 SERVER_DEPS=server.o user.o list.o header.o slogin.o logger.o util.o synch.o status.o
-CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o
+CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o queue.o synch.o
 
 .PHONY: all clean run full
 
