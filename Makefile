@@ -14,9 +14,9 @@ LDFLAGS=-pthread
 SERVER_DEPS=server.o user.o list.o header.o slogin.o logger.o util.o synch.o status.o
 CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o
 
-.PHONY: all clean
+.PHONY: all clean run full
 
-all: clean $(BUILDDIR) $(BINS)
+all: $(BUILDDIR) $(BINS)
 
 client: $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
 	$(CC) $(LDFLAGS) -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
@@ -29,6 +29,11 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
+
+run: all
+	bash ./run.sh
+
+full: clean all
 
 clean:
 	rm -rf $(BINS) $(BUILDDIR) vgcore.*

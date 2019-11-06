@@ -25,7 +25,13 @@ enum task_id {
 
     client_pword_auth    = 5,   /* Client authenticating their password */
     server_pword_auth    = 6,   /* Server replying to client_pword_auth */
+
+    client_command       = 7,   /* Command from the client to the server */
+    server_command       = 8,   /* Reply to the servers command */
 };
+
+/* Return the task_id as a string */
+const char *id_to_str(enum task_id id);
 
 struct header {
     enum task_id task_id;   /* The task to be undertaken by the receiver */
@@ -63,9 +69,17 @@ struct spa_payload {            /* task = server_pword_auth */
     enum status_code code;      /* The code when authenticating the user */
 };
 
+struct ccmd_payload {           /* task = client_command */
+    char cmd[MAX_MSG_LENGTH];   /* The message from the client to server */
+};
+
+struct scmd_payload {           /* task = server_command */
+    enum status_code code;      /* The code to send to the server */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
- * Return -1 on error, zero on success */
+ * Return 0 on success, -errno is returned on error */
 int get_payload(int sock, struct header *head, void **payload);
 
 /* Send the payload via the socket. This simplifies the process of constructing
@@ -102,5 +116,11 @@ int recv_payload_cpa(int sock, struct cpa_payload *cpa);
 
 int send_payload_spa(int sock, enum status_code code);
 int recv_payload_spa(int sock, struct spa_payload *spa);
+
+int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH]);
+int recv_payload_ccmd(int sock, struct ccmd_payload *ccmd);
+
+int send_payload_scmd(int sock, enum status_code code);
+int recv_payload_scmd(int sock, struct scmd_payload *scmd);
 
 #endif /* HEADER_H */

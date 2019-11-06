@@ -15,6 +15,8 @@
 void banner_logged_in(void)
 {
     // TODO get a sezy banner
-    printf("Welcome!\n");
+    printf("/----------\\\n");
+    printf("| Welcome! |\n");
+    printf("\\----------/\n");
 }
 

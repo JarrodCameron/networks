@@ -10,7 +10,7 @@ WINNAME="user_timeout"
 # Args for client/server
 SERVER_PORT="1024"
 BLOCK_DURATION="0"
-TIMEOUT="0"
+TIMEOUT="5"
 IP_ADDR="127.0.0.1"
 
 # Exit if non-zero reutrn status

@@ -7,6 +7,7 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -31,7 +32,7 @@ int get_payload(int sock, struct header *h, void **p)
     void *payload;
 
     if (recv(sock, &head, sizeof(struct header), 0) != sizeof(struct header)) {
-        return -1;
+        return -errno;
     }
 
     if (head.data_len == 0) {
@@ -47,7 +48,7 @@ int get_payload(int sock, struct header *h, void **p)
 
     if (recv(sock, payload, head.data_len, 0) != head.data_len) {
         free (payload);
-        return -1;
+        return -errno;
     }
 
     *p = payload;
@@ -90,16 +91,22 @@ int send_payload(
 
 }
 
-/* Assert the contents of the header a valid for processessing */
-static inline void assert_head
-(
-    struct header head,
-    enum task_id task_id,
-    uint32_t size
-)
+const char *id_to_str(enum task_id id)
 {
-    assert(head.task_id == task_id);
-    assert(head.data_len == size);
+    const char *names[] = {
+        [client_init_conn] = "client_init_conn",
+        [server_init_conn] = "server_init_conn",
+        [client_uname_auth] = "client_uname_auth",
+        [server_uname_auth] = "server_uname_auth",
+        [client_pword_auth] = "client_pword_auth",
+        [server_pword_auth] = "server_pword_auth",
+        [client_command] = "client_command",
+        [server_command] = "server_command",
+    };
+    if (id <= 0 || id >= ARRSIZE(names))
+        return "{Invalid task_id}";
+
+    return names[id];
 }
 
 int recv_payload_sic(int sock, struct sic_payload *sic)
@@ -159,6 +166,54 @@ int recv_payload_spa(int sock, struct spa_payload *spa)
         server_pword_auth,
         spa,
         sizeof(struct spa_payload)
+    );
+}
+
+int recv_payload_ccmd(int sock, struct ccmd_payload *ccmd)
+{
+    return recv_payload(
+        sock,
+        client_command,
+        ccmd,
+        sizeof(struct ccmd_payload)
+    );
+}
+
+int recv_payload_scmd(int sock, struct scmd_payload *scmd)
+{
+    return recv_payload(
+        sock,
+        client_command,
+        scmd,
+        sizeof(struct scmd_payload)
+    );
+}
+
+int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH])
+{
+    struct ccmd_payload ccmd = {0};
+    memcpy(ccmd.cmd, cmd, MAX_MSG_LENGTH);
+
+    return send_payload(
+        sock,
+        client_command,
+        sizeof(ccmd),
+        0, // ignored
+        (void **) &ccmd
+    );
+}
+
+int send_payload_scmd(int sock, enum status_code code)
+{
+    struct scmd_payload scmd = {0};
+    scmd.code = code;
+
+    return send_payload(
+        sock,
+        server_command,
+        sizeof(scmd),
+        0, // ignored
+        (void **) &scmd
     );
 }
 

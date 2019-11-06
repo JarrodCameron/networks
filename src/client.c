@@ -19,6 +19,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <pthread.h>
+
 #include "clogin.h"
 #include "config.h"
 #include "header.h"
@@ -27,24 +29,8 @@
 struct {
     struct sockaddr_in sockaddr;
     int sock;
+    pthread_t child_thread;
 } client = {0};
-
-enum cmd_id {               /* The command to be done by the user, for what
-                             * each of these do read the spec (p3/p4) */
-    cmd_message      = 1,   /* message <user> <message> */
-    cmd_breadcase    = 2,   /* broadcase <message> */
-    cmd_whoelse      = 3,   /* whoelse */
-    cmd_whoelsesince = 4,   /* whoelsesince <time> */
-    cmd_block        = 5,   /* block <user> */
-    cmd_unblock      = 6,   /* unblock <user> */
-    cmd_logout       = 7,   /* logout */
-};
-
-struct command {
-    char **tokens;      /* Each argument given by client */
-    uint32_t ntokens;   /* Number of words in command */
-    enum cmd_id cmd_id; /* The command the user want to do */
-};
 
 /* Print usage and exit */
 static void usage (void)
@@ -121,12 +107,73 @@ static int init_connection (void)
     return 0;
 }
 
+/* The client has timed out and needs to be logged off */
+static int handle_client_timeout(void)
+{
+    printf("You have timed out!\n");
+    printf("Logging off now.\n");
+    exit(1); // Can we just shut down or do we need to log off?
+    return -1;
+}
+
+/* A command was received by the server, handle the command from here */
+static int handle_scmd(struct scmd_payload *scmd)
+{
+    switch (scmd->code) {
+        case time_out:
+            return handle_client_timeout();
+
+        default:
+            panic("Received unknown server command: \"%s\"(%d)\n",
+                code_to_str(scmd->code), scmd->code
+            );
+    }
+}
+
+/* This is where the listening thread starts, just wating for a message from
+ * the server. */
+static void *listen_thread_landing(UNUSED void *arg)
+{
+    struct header head;
+    void *payload;
+    int ret;
+
+    ret = get_payload(client.sock, &head, &payload);
+    if (ret < 0)
+        return NULL;
+
+    if (head.task_id == server_command)
+        handle_scmd(payload);
+
+    free(payload);
+    return NULL;
+}
+
+
+/* This will spawn a listening thread for the server, this is used to wait for
+ * messegaes (i.e. timeout). */
+static int spawn_listener()
+{
+    return pthread_create(
+        &(client.child_thread),
+        NULL,
+        listen_thread_landing,
+        NULL
+    );
+}
+
 /* Run the client, this is where the communication to the server takes place.
  * This is logs the client in to the server */
 static void run_client (void)
 {
     if (attempt_login(client.sock) < 0)
         return;
+
+    if (spawn_listener() < 0) {
+        // TODO:
+        // 1. Spawn a listening thread for timeout signals.
+        // 2. upon error disonnect
+    }
 
     while (1) {
         char cmd[MAX_COMMAND] = {0};

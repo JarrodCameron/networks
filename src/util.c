@@ -43,3 +43,10 @@ void bfree(const int nitems, ...)
     }
     va_end(ap);
 }
+
+struct timeval sec_to_tv(int seconds)
+{
+    struct timeval ret = {0};
+    ret.tv_sec = seconds;
+    return ret;
+}

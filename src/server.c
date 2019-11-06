@@ -10,6 +10,7 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -18,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -32,11 +34,16 @@
 #include "util.h"
 
 static struct {
+
+    /* User args */
     uint32_t block_duration;    /* How long to block a user */
     int port;                   /* Port to listen to connections */
     int timeout;                /* How long until a user gets kicked */
-    struct list *users;         /* List of all valid users */
+
     int listen_sock;            /* The socket to listen on (i.e. the fd) */
+
+    struct list *users;         /* List of all valid users */
+
     struct list *threads;       /* List of each spawned thread */
 } server = {0};
 
@@ -54,6 +61,10 @@ static void free_users (void);
 static int dispatch_event (struct connection *conn);
 static struct connection *init_conn (void);
 static void free_conn (struct connection *conn);
+static void free_conn_not_sock(struct connection *conn);
+static void client_command_handler(int sock, struct user *user);
+static int set_timeout(int sock);
+static int timeout_user(int sock, struct user *user);
 
 /* Print usage and exit */
 static void usage (void)
@@ -71,18 +82,78 @@ static void *thread_landing (void *arg)
 {
     struct user *user;
     struct connection *conn = arg;
+    int sock = conn->sock;
+    free_conn_not_sock(conn);
 
-    // ACK the connection is good for communication
-    if (send_payload_sic(conn->sock, init_success) < 0)
+    // Send the ACK, unblock client
+    if (send_payload_sic(sock, init_success) < 0)
         return NULL;
 
-    user = auth_user(conn->sock, server.users);
+    user = auth_user(sock, server.users);
     if (user == NULL)
         return NULL;
 
-    (void) user;
-    free_conn(conn);
+    set_timeout(sock);
+
+    client_command_handler(sock, user);
+
     return NULL;
+}
+
+/* Set the timeout time for when the socket is receiving from the client */
+static int set_timeout(int sock)
+{
+    struct timeval tv = sec_to_tv(server.timeout);
+    int ret = setsockopt(
+        sock,
+        SOL_SOCKET,     // Needed to edit socket api
+        SO_RCVTIMEO,    // Timeout on recv
+        (char *) &tv,
+        sizeof(struct timeval)
+    );
+
+    // This should never fail
+    assert(ret >= 0);
+
+    return ret;
+}
+
+/* This handles all commands sent from the client to the server for commands,
+ * not for spawning connections */
+static void client_command_handler(int sock, struct user *user)
+{
+    struct header head;
+    void *payload;
+    int ret;
+
+    while (1) {
+        ret = get_payload(sock, &head, &payload);
+
+        if (ret == -EAGAIN || ret == -EWOULDBLOCK) {
+            timeout_user(sock, user);
+            return;
+        }
+
+        if (ret < 0)
+            return;
+
+        logs("Received payload\n");
+    }
+}
+
+/* The user has received a timeout and needs to be logged out */
+static int timeout_user(int sock, struct user *user)
+{
+    char *name;
+    int ret;
+
+    name = user_get_uname(user);
+    logs("User timeout: \"%s\"\n", name);
+    free(name);
+
+    ret = send_payload_scmd(sock, time_out);
+    user_log_off(user);
+    return ret;
 }
 
 /* Initialise the users list from the CRED_LIST file */
@@ -230,6 +301,16 @@ static void free_conn (struct connection *conn)
 
     if (conn->sock >= 0)
         close (conn->sock);
+
+    free_conn_not_sock(conn);
+}
+
+/* The same as free_conn but does not close the socket. This is good for
+ * preventing memory leak while keeping the socket open */
+static void free_conn_not_sock(struct connection *conn)
+{
+    if (conn == NULL)
+        return;
 
     free(conn);
 }

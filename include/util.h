@@ -20,11 +20,6 @@
         fflush(stdout);                                                     \
     } while (0)
 
-//UNUSED static const char *task_id_names[] = {
-//    [client_init_conn] = "client_init_conn",
-//    [client_login_attempt] = "client_login_attempt",
-//};
-
 /* Shit has hit the fan, abort() mission */
 NORETURN void panic(const char *fmt, ...);
 
@@ -32,5 +27,8 @@ NORETURN void panic(const char *fmt, ...);
  * one line. This doesn't do anything important other than help my fragile
  * fingers from getting tired :( */
 void bfree(const int nitems, ...);
+
+/* Convert number of seconds to a timeval struct */
+struct timeval sec_to_tv(int seconds);
 
 #endif /* UTIL_H */
