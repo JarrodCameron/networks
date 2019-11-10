@@ -31,4 +31,12 @@ void bfree(const int nitems, ...);
 /* Convert number of seconds to a timeval struct */
 struct timeval sec_to_tv(int seconds);
 
+/* Convert a string into a list of space seperated tokens, NULL is returned if
+ * there is an error (i.e. malloc error) */
+struct tokens {
+    char **token;   /* Each word seperated by a space */
+    int ntokens;    /* The number of tokens */
+};
+struct tokens *tokenise(const char *line);
+
 #endif /* UTIL_H */

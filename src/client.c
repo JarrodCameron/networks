@@ -5,8 +5,11 @@
  *                                         *
  *******************************************/
 
-/* Unique identifies for the client */
-#define I_AM_CLIENT
+/* Questions:
+ * - Do we have to worry about receiving messages in the wrong order? - Ask webcms
+ * - On failed attempts can we exit or do we need to log out? - Just exit
+ * - Multiple threads for client? - Nah, just use select(2)
+ */
 
 #include <arpa/inet.h>
 #include <assert.h>
@@ -149,7 +152,6 @@ static void *listen_thread_landing(UNUSED void *arg)
     return NULL;
 }
 
-
 /* This will spawn a listening thread for the server, this is used to wait for
  * messegaes (i.e. timeout). */
 static int spawn_listener()
@@ -160,6 +162,12 @@ static int spawn_listener()
         listen_thread_landing,
         NULL
     );
+}
+
+/* Send the command to the server and handle the response appropriately */
+static int deploy_command(char cmd[MAX_COMMAND])
+{
+    return send_payload_ccmd(client.sock, cmd);
 }
 
 /* Run the client, this is where the communication to the server takes place.
@@ -189,14 +197,9 @@ static void run_client (void)
         if (cmd[ret-1] == '\n' || cmd[ret-1] == '\r')
             cmd[ret-1] = '\0';
 
-        printf("cmd: %s\n", cmd);
-
-        /*
-         * /------------------------------------------------------------------\
-         * |TODO, this is where we should parse the input, however the server |
-         * |needs more work before we can do this.                            |
-         * \------------------------------------------------------------------/
-         */
+        if (deploy_command(cmd) < 0) {
+            printf("Failed to send command: \"%s\"\n", cmd);
+        }
     }
 
 }

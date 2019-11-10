@@ -50,3 +50,41 @@ struct timeval sec_to_tv(int seconds)
     ret.tv_sec = seconds;
     return ret;
 }
+
+struct tokens *tokenise(const char *line)
+{
+    if (line == NULL)
+        return NULL;
+    struct tokens *ret = malloc(sizeof(struct tokens));
+    *ret = (struct tokens) {0};
+    // TODO Implement me please
+    return NULL;
+}
+
+// From John Sheaphard ////////////////////////////////////////////////////////
+//           // tokenise: split a string around a set of separators
+//           // create an array of separate strings
+//           // final array element contains NULL
+//           char **tokenise(char *str, char *sep) {
+//                   // temp copy of string, because strtok() mangles it
+//                   char *tmp;
+//                   // count tokens
+//                   tmp = strdup(str);
+//                   int n = 0;
+//                   strtok(tmp, sep); n++;
+//                   while (strtok(NULL, sep) != NULL) n++;
+//                   free(tmp);
+//                   // allocate array for argv strings
+//                   char **strings = malloc((n+1)*sizeof(char *));
+//                   assert(strings != NULL);
+//                   // now tokenise and fill array
+//                   tmp = strdup(str);
+//                   char *next; int i = 0;
+//                   next = strtok(tmp, sep);
+//                   strings[i++] = strdup(next);
+//                   while ((next = strtok(NULL,sep)) != NULL)
+//                           strings[i++] = strdup(next);
+//                   strings[i] = NULL;
+//                   free(tmp);
+//                   return strings;
+//           }

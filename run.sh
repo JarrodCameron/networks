@@ -1,6 +1,3 @@
-#!/usr/bin/env bash
-
-# Author: Jarrod Cameron (z5210220)
 # Date:   14/10/19 11:05
 
 # Tmux window names

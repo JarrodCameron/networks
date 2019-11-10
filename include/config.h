@@ -33,4 +33,11 @@
  * spec saya three. */
 #define NLOGIN_ATTEMPTS 3
 
+/* The maximium number of possible tokens. The command with the largest
+ * number of tokens is:
+ *      private <user> <download> <filename> <chunk>
+ * If you want buffer overflows please make this number smaller :P
+ */
+#define MAX_TOKENS 5
+
 #endif /* CONFIG_H */

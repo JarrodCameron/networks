@@ -118,6 +118,23 @@ static int set_timeout(int sock)
     return ret;
 }
 
+/* The client has send me a question and I shall answer it */
+static int service_query(struct header head, void *payload)
+{
+    if (head.task_id != client_command) {
+        panic(
+            "Received bad query: \"%s\"(%d)\n",
+            id_to_str(head.task_id),
+            head.task_id
+        );
+    }
+
+    struct ccmd_payload *ccmd = payload;
+
+    printf("client command -> %s\n", ccmd->cmd);
+    return 0; // TODO Contineu from here
+}
+
 /* This handles all commands sent from the client to the server for commands,
  * not for spawning connections */
 static void client_command_handler(int sock, struct user *user)
@@ -136,6 +153,13 @@ static void client_command_handler(int sock, struct user *user)
 
         if (ret < 0)
             return;
+
+        if (service_query(head, payload) < 0) {
+            free (payload);
+            return;
+        }
+
+        free (payload);
 
         logs("Received payload\n");
     }
