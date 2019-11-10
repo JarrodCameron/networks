@@ -11,14 +11,6 @@
 #include "queue.h"
 #include "synch.h"
 
-// TODO /* Pop item off the front of the queue, also known as "dequeue" */
-// TODO void *queue_pop (struct queue *queue);
-
-// TODO /* Free the queue from memory, apply "f(item)" to each of the items that
-// TODO  * have been pushed to the list */
-// TODO void queue_free(struct queue *queue, void (*f)(void*));
-
-
 struct node {
     struct node *next;
     struct node *prev;

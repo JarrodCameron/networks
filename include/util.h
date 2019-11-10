@@ -13,6 +13,10 @@
 /* Number of elements in array */
 #define ARRSIZE(A) (sizeof(A)/sizeof(A[0]))
 
+/* Handy dandy */
+#define MAX(A,B) ((A>B)?(A):B)
+#define MIN(A,B) ((A<B)?(A):B)
+
 /* Debugging stuff */
 #define check()                                                             \
     do {                                                                    \

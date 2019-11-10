@@ -18,11 +18,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#include <pthread.h>
 
 #include "clogin.h"
 #include "config.h"
@@ -32,8 +31,20 @@
 struct {
     struct sockaddr_in sockaddr;
     int sock;
-    pthread_t child_thread;
 } client = {0};
+
+/* Helper functions */
+static void usage (void);
+static int init_args (const char *ip_addr, const char *port);
+static int conn_to_server (int sock);
+static int init_connection (void);
+static int handle_client_timeout(void);
+static int handle_scmd(struct scmd_payload *scmd);
+static int socket_read_handle(void);
+static int stdin_read_handle(void);
+static int deploy_command(char cmd[MAX_COMMAND]);
+static int dual_select(int *sock_ret, int *stdin_ret);
+static void run_client (void);
 
 /* Print usage and exit */
 static void usage (void)
@@ -133,9 +144,9 @@ static int handle_scmd(struct scmd_payload *scmd)
     }
 }
 
-/* This is where the listening thread starts, just wating for a message from
- * the server. */
-static void *listen_thread_landing(UNUSED void *arg)
+/* This is called when the main loop receives a message from the socket
+ * and needs to be handled */
+static int socket_read_handle(void)
 {
     struct header head;
     void *payload;
@@ -143,25 +154,34 @@ static void *listen_thread_landing(UNUSED void *arg)
 
     ret = get_payload(client.sock, &head, &payload);
     if (ret < 0)
-        return NULL;
+        return -1;
 
     if (head.task_id == server_command)
         handle_scmd(payload);
 
     free(payload);
-    return NULL;
+    return 0;
 }
 
-/* This will spawn a listening thread for the server, this is used to wait for
- * messegaes (i.e. timeout). */
-static int spawn_listener()
+/* This is called when the main loop receives a message from standard input
+ * and needs to be handled */
+static int stdin_read_handle(void)
 {
-    return pthread_create(
-        &(client.child_thread),
-        NULL,
-        listen_thread_landing,
-        NULL
-    );
+    char cmd[MAX_COMMAND] = {0};
+
+    int ret = read(0, cmd, MAX_COMMAND-1);
+
+    if (ret <= 1)
+        return 0;
+
+    if (cmd[ret-1] == '\n' || cmd[ret-1] == '\r')
+        cmd[ret-1] = '\0';
+
+    if (deploy_command(cmd) < 0) {
+        printf("Failed to send command: \"%s\"\n", cmd);
+        return -1;
+    }
+    return 0;
 }
 
 /* Send the command to the server and handle the response appropriately */
@@ -170,35 +190,60 @@ static int deploy_command(char cmd[MAX_COMMAND])
     return send_payload_ccmd(client.sock, cmd);
 }
 
+/* Use the "select" system call for stdin and the server socket. If the
+ * fd is selected then it is set to 1, otherwise it is set to zero. Return
+ * -1 on error */
+static int dual_select(int *sock_ret, int *stdin_ret)
+{
+    fd_set read_set;
+    FD_ZERO(&read_set);
+    FD_SET(0, &read_set); /* stdin fd */
+    FD_SET(client.sock, &read_set);
+
+    int nfds = MAX(0 /* stdin fd */, client.sock) + 1;
+
+    int ret = select(nfds, &read_set, NULL, NULL, NULL);
+    if (ret < 0) {
+        return -1;
+    }
+
+    *sock_ret = !!FD_ISSET(client.sock, &read_set);
+    *stdin_ret = !!FD_ISSET(0 /* stdin fd */, &read_set);
+    return 0;
+}
+
 /* Run the client, this is where the communication to the server takes place.
  * This is logs the client in to the server */
 static void run_client (void)
 {
+    int sock_ret, stdin_ret;
+
     if (attempt_login(client.sock) < 0)
         return;
 
-    if (spawn_listener() < 0) {
-        // TODO:
-        // 1. Spawn a listening thread for timeout signals.
-        // 2. upon error disonnect
-    }
-
     while (1) {
-        char cmd[MAX_COMMAND] = {0};
 
         printf("> ");
         fflush(stdout);
 
-        int ret = read(0, cmd, MAX_COMMAND-1);
+        sock_ret = stdin_ret = -1;
+        if (dual_select(&sock_ret, &stdin_ret) < 0) {
+            printf("Failed to receive input from server or client\n");
+            return;
+        }
 
-        if (ret <= 1)
-            continue;
+        if (sock_ret == 1) {
+            if (socket_read_handle() < 0) {
+                printf("Failed to handle socket payload\n");
+                return;
+            }
+        }
 
-        if (cmd[ret-1] == '\n' || cmd[ret-1] == '\r')
-            cmd[ret-1] = '\0';
-
-        if (deploy_command(cmd) < 0) {
-            printf("Failed to send command: \"%s\"\n", cmd);
+        if (stdin_ret == 1) {
+            if (stdin_read_handle() < 0) {
+                printf("Failed to handle stdin payload\n");
+                return;
+            }
         }
     }
 
@@ -226,4 +271,15 @@ int main (int argc, char **argv)
 
     return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
 
