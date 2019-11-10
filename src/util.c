@@ -10,8 +10,29 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "util.h"
+
+/* The name of each valid command */
+static const char *cmd_names[] = {
+    "message", "broadcast", "whoelsesince", "whoelse", "block", "unblock",
+    "logout", "startprivate", "private", "stopprivate",
+};
+
+/* The max number of seperators for cmd_names[i] */
+static int cmd_max_seps[] = {
+    3, 2, 2, 1, 2, 2, 1, 2, 3, 2,
+};
+
+_Static_assert(
+    ARRSIZE(cmd_names) == ARRSIZE(cmd_max_seps),
+    "Seperators and names don't match!"
+);
+
+/* Helper functions */
+static const char *get_first_non_space(const char *line);
+static int get_max_seps(const char *line);
 
 NORETURN void panic(const char *fmt, ...)
 {
@@ -51,40 +72,115 @@ struct timeval sec_to_tv(int seconds)
     return ret;
 }
 
+/* This function is a modified version of Jas's tokenise from the mysh
+ * assignment (Ass 2) from COMP1521, 18s2. If this function has bugs I
+ * am re-doing my assignment in python on the last day. */
 struct tokens *tokenise(const char *line)
 {
     if (line == NULL)
         return NULL;
-    struct tokens *ret = malloc(sizeof(struct tokens));
-    *ret = (struct tokens) {0};
-    // TODO Implement me please
-    return NULL;
+
+    struct tokens *tokens = malloc(sizeof(struct tokens));
+    if (tokens == NULL)
+        return NULL;
+
+    *tokens = (struct tokens) {0};
+
+    char *temp = strdup(line);
+    if (temp == NULL) {
+        tokens_free(tokens);
+        return NULL;
+    }
+
+    int max_seps = get_max_seps(temp);
+    if (max_seps < 0) {
+        // Command doesnt exist
+        tokens_free(tokens);
+        return NULL;
+    }
+
+    char *saveptr = NULL;
+    strtok_r(temp, " ", &saveptr);
+    int n = 1;
+    while (n < max_seps && strtok_r(NULL, " ", &saveptr) != NULL)
+        n += 1;
+
+    free(temp);
+
+    if (n != max_seps) {
+        // Only some of the args were given
+        tokens_free(tokens);
+        return NULL;
+    }
+
+    char **strings = calloc(n, sizeof(char *));
+    if (strings == NULL) {
+        tokens_free(tokens);
+        return NULL;
+    }
+
+    temp = strdup(line);
+
+    int i = 0;
+    char *next = strtok_r(temp, " ", &saveptr);
+    strings[i++] = strdup(next);
+    while (i < n-1 && (next = strtok_r(NULL, " ", &saveptr)) != NULL)
+        strings[i++] = strdup(next);
+
+    if (i != n) {
+        next += strlen(next) + 1;
+        strings[i] = strdup(next);
+    }
+    free(temp);
+
+    tokens->toks = strings;
+    tokens->ntokens = n;
+
+    return tokens;
 }
 
-// From John Sheaphard ////////////////////////////////////////////////////////
-//           // tokenise: split a string around a set of separators
-//           // create an array of separate strings
-//           // final array element contains NULL
-//           char **tokenise(char *str, char *sep) {
-//                   // temp copy of string, because strtok() mangles it
-//                   char *tmp;
-//                   // count tokens
-//                   tmp = strdup(str);
-//                   int n = 0;
-//                   strtok(tmp, sep); n++;
-//                   while (strtok(NULL, sep) != NULL) n++;
-//                   free(tmp);
-//                   // allocate array for argv strings
-//                   char **strings = malloc((n+1)*sizeof(char *));
-//                   assert(strings != NULL);
-//                   // now tokenise and fill array
-//                   tmp = strdup(str);
-//                   char *next; int i = 0;
-//                   next = strtok(tmp, sep);
-//                   strings[i++] = strdup(next);
-//                   while ((next = strtok(NULL,sep)) != NULL)
-//                           strings[i++] = strdup(next);
-//                   strings[i] = NULL;
-//                   free(tmp);
-//                   return strings;
-//           }
+/* Return the first legit character of a line. Non-legit characters are spaces
+ * and null bytes */
+static const char *get_first_non_space(const char *line)
+{
+    const char *ret = line;
+    while (*ret == ' ' || *ret == '\0')
+        ret++;
+
+    if (*ret == '\0')
+        return NULL;
+
+    return ret;
+}
+
+/* Return the max number of seperators for a line. If the line is not a valid
+ * command the NULL is returned */
+static int get_max_seps(const char *line)
+{
+    const char *start = get_first_non_space(line);
+    if (start == NULL)
+        return -1;
+
+    assert(ARRSIZE(cmd_names) == ARRSIZE(cmd_max_seps));
+
+    unsigned int i;
+    for (i = 0; i < ARRSIZE(cmd_names); i++) {
+        const char *name = cmd_names[i];
+        if (strncmp(start, name, strlen(name)) == 0) {
+            return cmd_max_seps[i];
+        }
+    }
+    return -1;
+}
+
+void tokens_free(struct tokens *t) {
+    if (t == NULL)
+        return;
+
+    for (int i = 0; i < t->ntokens; i++) {
+        free(t->toks[i]);
+    }
+
+    free(t->toks);
+    free(t);
+}
