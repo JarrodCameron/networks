@@ -137,6 +137,10 @@ static int handle_scmd(struct scmd_payload *scmd)
         case time_out:
             return handle_client_timeout();
 
+        case bad_command:
+            printf("You entered an invalid command! <\n");
+            return 0;
+
         default:
             panic("Received unknown server command: \"%s\"(%d)\n",
                 code_to_str(scmd->code), scmd->code
@@ -271,15 +275,3 @@ int main (int argc, char **argv)
 
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-

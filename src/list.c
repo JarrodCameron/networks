@@ -178,3 +178,19 @@ void list_traverse (struct list *list, void(*func)(void*, void*), void *arg)
     }
     lock_release(list->lock);
 }
+
+int list_len(struct list *list)
+{
+    int ret;
+    lock_acquire(list->lock);
+    ret = list->len;
+    lock_release(list->lock);
+    return ret;
+}
+
+void *list_pop(struct list *list)
+{
+    // TODO
+    (void) list;
+    return NULL;
+}

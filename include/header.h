@@ -28,6 +28,10 @@ enum task_id {
 
     client_command       = 7,   /* Command from the client to the server */
     server_command       = 8,   /* Reply to the servers command */
+
+    client_whoelse       = 9,   /* */
+    server_whoelse       = 10,  /* Send the user a logged on user */
+    // TODO Implement these senders, receivers, and structs
 };
 
 /* Return the task_id as a string */
@@ -75,6 +79,7 @@ struct ccmd_payload {           /* task = client_command */
 
 struct scmd_payload {           /* task = server_command */
     enum status_code code;      /* The code to send to the server */
+    uint64_t extra;             /* Purpose interprited by client */
 };
 
 /* Read the payload and header from the sender, return them by reference.
@@ -120,7 +125,7 @@ int recv_payload_spa(int sock, struct spa_payload *spa);
 int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH]);
 int recv_payload_ccmd(int sock, struct ccmd_payload *ccmd);
 
-int send_payload_scmd(int sock, enum status_code code);
+int send_payload_scmd(int sock, enum status_code code, uint64_t extra);
 int recv_payload_scmd(int sock, struct scmd_payload *scmd);
 
 #endif /* HEADER_H */

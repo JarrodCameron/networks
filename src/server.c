@@ -33,6 +33,9 @@
 #include "user.h"
 #include "util.h"
 
+/* For returning a service function pointer */
+typedef int (*service_handle)(int sock, struct tokens *, struct user *);
+
 static struct {
 
     /* User args */
@@ -118,8 +121,76 @@ static int set_timeout(int sock)
     return ret;
 }
 
+/* Handle sending the client the result of the who else command */
+static int whoelse_service (int sock, struct tokens *toks, struct user *user)
+{
+    struct list *whoelse_list = user_whoelse(user);
+    if (whoelse_list == NULL) {
+        // TODO Send internal server error
+        return -1;
+    }
+
+    int len = list_len(whoelse_list);
+    int ret = send_payload_scmd(sock, server_command, len);
+    if (ret < 0) {
+        list_free(whoelse_list, free);
+        return -1;
+    }
+
+    for (int i = 0; i < len; i++) {
+        // Send the user TODO
+        // First you need to do the todo in header.h
+    }
+    (void) len;
+
+
+    // TODO
+    (void) toks;
+    (void) sock;
+    (void) user;
+    return -1;
+}
+
+/* The client has given us a command which must be serviced, return a pointer
+ * to the function that does the servicing */
+static service_handle lookup_service(const char *name)
+{
+
+    if (strcmp(name, "message") == 0)
+        return NULL;
+
+    if (strcmp(name, "broadcast") == 0)
+        return NULL;
+
+    if (strcmp(name, "whoelsesince") == 0)
+        return NULL;
+
+    if (strcmp(name, "whoelse") == 0)
+        return whoelse_service;
+
+    if (strcmp(name, "block") == 0)
+        return NULL;
+
+    if (strcmp(name, "unblock") == 0)
+        return NULL;
+
+    if (strcmp(name, "logout") == 0)
+        return NULL;
+
+    if (strcmp(name, "startprivate") == 0)
+        return NULL;
+
+    return NULL;
+}
+
 /* The client has send me a question and I shall answer it */
-static int service_query(struct header head, void *payload)
+static int service_query
+(
+    int sock,
+    struct user *user,
+    struct header head,
+    void *payload
+)
 {
     if (head.task_id != client_command) {
         panic(
@@ -131,8 +202,22 @@ static int service_query(struct header head, void *payload)
 
     struct ccmd_payload *ccmd = payload;
 
-    printf("client command -> %s\n", ccmd->cmd);
-    return 0; // TODO Contineu from here
+    struct tokens *toks = NULL;
+    int ret = tokenise(ccmd->cmd, &toks);
+    if (ret < 0) {
+        send_payload_scmd(sock, server_error, 0 /* ignored */);
+        return -1;
+    } else if (toks == NULL) {
+        ret = send_payload_scmd(sock, bad_command, 0 /* ignored */);
+        return (ret < 0) ? -1 : 0;
+    }
+
+    service_handle service = lookup_service(toks->toks[0]);
+    assert(service != NULL);
+
+    ret = service(sock, toks, user);
+    tokens_free(toks);
+    return ret;
 }
 
 /* This handles all commands sent from the client to the server for commands,
@@ -154,7 +239,7 @@ static void client_command_handler(int sock, struct user *user)
         if (ret < 0)
             return;
 
-        if (service_query(head, payload) < 0) {
+        if (service_query(sock, user, head, payload) < 0) {
             free (payload);
             return;
         }
@@ -175,7 +260,7 @@ static int timeout_user(int sock, struct user *user)
     logs("User timeout: \"%s\"\n", name);
     free(name);
 
-    ret = send_payload_scmd(sock, time_out);
+    ret = send_payload_scmd(sock, time_out, 0 /* ignored */);
     user_log_off(user);
     return ret;
 }

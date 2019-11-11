@@ -207,3 +207,10 @@ bool user_is_blocked(struct user *user)
 
     return ret;
 }
+
+struct list *user_whoelse(struct user *exception)
+{
+    // TODO
+    (void) exception;
+    return NULL;
+}

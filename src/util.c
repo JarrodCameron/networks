@@ -75,28 +75,30 @@ struct timeval sec_to_tv(int seconds)
 /* This function is a modified version of Jas's tokenise from the mysh
  * assignment (Ass 2) from COMP1521, 18s2. If this function has bugs I
  * am re-doing my assignment in python on the last day. */
-struct tokens *tokenise(const char *line)
+int tokenise(const char *line, struct tokens **toks)
 {
     if (line == NULL)
-        return NULL;
+        return 0;
+
+    *toks = NULL;
 
     struct tokens *tokens = malloc(sizeof(struct tokens));
     if (tokens == NULL)
-        return NULL;
+        return -1;
 
     *tokens = (struct tokens) {0};
 
     char *temp = strdup(line);
     if (temp == NULL) {
         tokens_free(tokens);
-        return NULL;
+        return -1;
     }
 
     int max_seps = get_max_seps(temp);
     if (max_seps < 0) {
         // Command doesnt exist
         tokens_free(tokens);
-        return NULL;
+        return 0;
     }
 
     char *saveptr = NULL;
@@ -110,13 +112,13 @@ struct tokens *tokenise(const char *line)
     if (n != max_seps) {
         // Only some of the args were given
         tokens_free(tokens);
-        return NULL;
+        return 0;
     }
 
     char **strings = calloc(n, sizeof(char *));
     if (strings == NULL) {
         tokens_free(tokens);
-        return NULL;
+        return -1;
     }
 
     temp = strdup(line);
@@ -136,7 +138,9 @@ struct tokens *tokenise(const char *line)
     tokens->toks = strings;
     tokens->ntokens = n;
 
-    return tokens;
+    *toks = tokens;
+
+    return 0;
 }
 
 /* Return the first legit character of a line. Non-legit characters are spaces

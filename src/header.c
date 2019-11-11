@@ -203,10 +203,11 @@ int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH])
     );
 }
 
-int send_payload_scmd(int sock, enum status_code code)
+int send_payload_scmd(int sock, enum status_code code, uint64_t extra)
 {
     struct scmd_payload scmd = {0};
     scmd.code = code;
+    scmd.extra = extra;
 
     return send_payload(
         sock,

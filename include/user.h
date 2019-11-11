@@ -47,6 +47,10 @@ void user_log_off(struct user *user);
 /* Return true if the user is logged on, false if the user is not logged on */
 bool user_is_logged_on(struct user *user);
 
+/* Return a list of users for the whoelse command, the exception is the user
+ * to ignore in the list. The list returned contains (char *)'s */
+struct list *user_whoelse(struct user *exception);
+
 // For debugging, print the list of users
 void user_list_dump(struct list *users);
 

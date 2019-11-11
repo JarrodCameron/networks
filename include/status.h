@@ -17,6 +17,7 @@ enum status_code {
     task_success = 11,  /* The task was done successfully */
     kill_me_now  = 12,  /* This thread should be killed */
     time_out     = 13,  /* The user has timed out, they will be logged off */
+    bad_command  = 14,  /* Client sent a bad command to the server */
 };
 
 /* Return the value of the status_code as a human readable string */

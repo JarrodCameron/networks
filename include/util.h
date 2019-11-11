@@ -35,13 +35,15 @@ void bfree(const int nitems, ...);
 /* Convert number of seconds to a timeval struct */
 struct timeval sec_to_tv(int seconds);
 
-/* Convert a string into a list of space seperated tokens, NULL is returned if
- * there is an error (i.e. malloc error) */
+/* Convert a string into a list of space seperated tokens. -1 is returned
+ * if there is an internal server error (i.e. malloc error). 0 is returned
+ * if there is no server error. If the users command was valid when *toks
+ * is filled, otherwise *toks is equals to NULL */
 struct tokens {
     char **toks;    /* Each word seperated by a space */
     int ntokens;    /* The number of tokens */
 };
-struct tokens *tokenise(const char *line);
+int tokenise(const char *line, struct tokens **toks);
 
 /* Helper function to free the tokens struct */
 void tokens_free(struct tokens *t);

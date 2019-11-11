@@ -38,4 +38,11 @@ void *list_get (
     void *arg
 );
 
+/* Return the number of nodes in the list */
+int list_len(struct list *list);
+
+/* Pop a random item of the list, most likely the first or the last,
+ * which item that is popped of is undefined */
+void *list_pop(struct list *list);
+
 #endif /* LIST_H */
