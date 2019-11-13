@@ -52,6 +52,12 @@ bool user_is_logged_on(struct user *user);
  * to ignore in the list. The list returned contains (char *)'s */
 struct list *user_whoelse(struct list *users, struct user *exception);
 
+/* Return a list of users for the whoelsesince command, the execption is the
+ * user to ignore in the list. The list returned contains (char *)'s */
+struct list *user_whoelsesince(
+    struct list *users, struct user *exception, time_t off_time
+);
+
 /* Return true/false if the two users are equals */
 bool user_equal(struct user *user1, struct user *user2);
 

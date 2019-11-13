@@ -2,7 +2,7 @@
 
 # Tmux window names
 SESSION="Networks"
-WINNAME="whoelse_client"
+WINNAME="whoelse_time"
 
 # Args for client/server
 SERVER_PORT="1024"
@@ -30,8 +30,8 @@ function get_free_portnum () {
 port="$(get_free_portnum)"
 
 # Command to run in the tmux session
-server_cmd="$VAL ./server $port $BLOCK_DURATION $TIMEOUT"
-client_cmd="sleep 1 && $VAL ./client $IP_ADDR $port"
+server_cmd="./server $port $BLOCK_DURATION $TIMEOUT"
+client_cmd="./client $IP_ADDR $port"
 
 # Pre-defined input for the client's
 #client1_input="john C-m smith"

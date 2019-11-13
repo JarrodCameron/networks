@@ -48,6 +48,8 @@ static struct {
     struct list *users;         /* List of all valid users */
 
     struct list *threads;       /* List of each spawned thread */
+
+    time_t time_started;        /* The exact time the server started */
 } server = {0};
 
 struct connection {
@@ -68,6 +70,26 @@ static void free_conn_not_sock(struct connection *conn);
 static void client_command_handler(int sock, struct user *user);
 static int set_timeout(int sock);
 static int timeout_user(int sock, struct user *user);
+static int whoelse_service (int sock, struct tokens *toks, struct user *user);
+static int whoelsesince_service (int sock, struct tokens *, struct user *user);
+
+/* The name of each command and the respective handle */
+struct {
+    const char *name;
+    service_handle service;
+} command_services[] = {
+    // WARNING: Do not change the order!!!
+    {.name = "message",      .service = NULL},
+    {.name = "broadcast",    .service = NULL},
+    {.name = "whoelsesince", .service = whoelsesince_service},
+    {.name = "whoelse",      .service = whoelse_service},
+    {.name = "block",        .service = NULL},
+    {.name = "unblock",      .service = NULL},
+    {.name = "logout",       .service = NULL},
+    {.name = "startprivate", .service = NULL},
+    {.name = "private",      .service = NULL},
+    {.name = "stopprivate",  .service = NULL},
+};
 
 /* Print usage and exit */
 static void usage (void)
@@ -121,14 +143,17 @@ static int set_timeout(int sock)
     return ret;
 }
 
-/* Handle sending the client the result of the who else command */
-static int whoelse_service (int sock, struct tokens *toks, struct user *user)
+/* Handle sending the client the result of the whoelse command */
+static int whoelse_service
+(
+    int sock,
+    UNUSED struct tokens *toks,
+    struct user *user
+)
 {
-    (void) toks;
     struct list *whoelse_list = user_whoelse(server.users, user);
-    if (whoelse_list == NULL) {
+    if (whoelse_list == NULL)
         return -1;
-    }
 
     int len = list_len(whoelse_list);
     int ret = send_payload_scmd(sock, task_ready, len);
@@ -139,7 +164,6 @@ static int whoelse_service (int sock, struct tokens *toks, struct user *user)
 
     while (list_is_empty(whoelse_list) == false) {
         char *name = list_pop(whoelse_list);
-        printf("name: %s\n", name);
         if (send_payload_sw(sock, name) < 0) {
             list_free(whoelse_list, free);
             free(name);
@@ -153,36 +177,63 @@ static int whoelse_service (int sock, struct tokens *toks, struct user *user)
     return 0;
 }
 
-/* The client has given us a command which must be serviced, return a pointer
- * to the function that does the servicing */
-static service_handle lookup_service(const char *name)
+/* Handle sending the client the result of the whoelsesince command */
+static int whoelsesince_service
+(
+    int sock,
+    struct tokens *toks,
+    struct user *user
+)
 {
 
-    if (strcmp(name, "message") == 0)
-        return NULL;
+    time_t off_time;
+    sscanf(toks->toks[1], "%ld", &off_time);
 
-    if (strcmp(name, "broadcast") == 0)
-        return NULL;
+    struct list *whoelse_list = user_whoelsesince(server.users, user, off_time);
+    if (whoelse_list == NULL)
+        return -1;
 
-    if (strcmp(name, "whoelsesince") == 0)
-        return NULL;
+    int len = list_len(whoelse_list);
+    int ret = send_payload_scmd(sock, task_ready, len);
+    if (ret < 0) {
+        list_free(whoelse_list, free);
+        return -1;
+    }
 
-    if (strcmp(name, "whoelse") == 0)
-        return whoelse_service;
+    while (list_is_empty(whoelse_list) == false) {
+        char *name = list_pop(whoelse_list);
+        if (send_payload_sws(sock, name) < 0) {
+            list_free(whoelse_list, free);
+            free(name);
+            return -1;
+        }
+        free(name);
+    }
 
-    if (strcmp(name, "block") == 0)
-        return NULL;
+    list_free(whoelse_list, free);
 
-    if (strcmp(name, "unblock") == 0)
-        return NULL;
+    return 0;
+}
 
-    if (strcmp(name, "logout") == 0)
-        return NULL;
+time_t server_uptime(void)
+{
+    return time(NULL) - server.time_started;
+}
 
-    if (strcmp(name, "startprivate") == 0)
-        return NULL;
+/* The client has given us a command which must be serviced, return a pointer
+ * to the function that does the servicing */
+static service_handle lookup_service(const char *cmd)
+{
 
-    return NULL;
+    unsigned int i;
+    for (i = 0; i < ARRSIZE(command_services); i++) {
+        const char *name = command_services[i].name;
+        if (strncmp(cmd, name, strlen(name)-1) == 0) {
+            return command_services[i].service;
+        }
+    }
+
+    panic("The lookup service only expects valid commands!\n");
 }
 
 /* The client has send me a question and I shall answer it */
@@ -331,8 +382,10 @@ static int init_server (void)
     if (server.threads == NULL)
         return -1;
 
-    if (server.listen_sock < 0)
+    if (server.listen_sock < 0) {
+        list_free(server.threads, NULL);
         return -1;
+    }
 
     ret = bind(
         server.listen_sock,
@@ -341,6 +394,7 @@ static int init_server (void)
     );
     if (ret < 0) {
         close(server.listen_sock);
+        list_free(server.threads, NULL);
         return -1;
     }
 
@@ -350,6 +404,7 @@ static int init_server (void)
     );
     if (ret < 0) {
         close(server.listen_sock);
+        list_free(server.threads, NULL);
         return -1;
     }
 
@@ -474,6 +529,16 @@ static void run_server (void)
     }
 }
 
+/* Set the time the server was started. This is used later for whoelsesince */
+static int set_start_time(void)
+{
+    server.time_started = time(NULL);
+    if (server.time_started == (time_t) -1)
+        return -1;
+
+    return -1;
+}
+
 int main (int argc, char **argv)
 {
 
@@ -496,6 +561,15 @@ int main (int argc, char **argv)
     if (init_server () < 0) {
         elogs("Failed to initialise server\n");
         free_users();
+        return 1;
+    }
+
+    if (set_start_time () < 0) {
+        elogs("Failed to set the start time\n");
+        elogs("Get a better computer\n");
+        free_users();
+        close(server.listen_sock);
+        list_free(server.threads, NULL);
         return 1;
     }
 

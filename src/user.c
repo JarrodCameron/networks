@@ -33,6 +33,10 @@ struct user {
  * identified by username each time */
 static uint32_t user_count = 1;
 
+/* Helper functions */
+static bool valid_whoelse(struct user *user, struct user *execption);
+static int add_username_to_list(struct list *name_list, struct user *curr_user);
+
 struct user *init_user (const char uname[MAX_UNAME], const char pword[MAX_PWORD])
 {
     struct user *ret = malloc(sizeof(struct user));
@@ -221,43 +225,27 @@ bool user_equal(struct user *user1, struct user *user2)
 
 struct list *user_whoelse(struct list *users, struct user *exception)
 {
-    struct iter *iter = list_iter_init(users);
-    if (iter == NULL)
-        return NULL;
+    struct iter *iter = NULL;
+    struct list *name_list = NULL;
 
-    struct list *name_list = list_init();
-    if (name_list == NULL) {
-        iter_free(iter);
-        return NULL;
-    }
+    iter = list_iter_init(users);
+    if (iter == NULL)
+        goto user_whoelse_error;
+
+    name_list = list_init();
+    if (name_list == NULL)
+        goto user_whoelse_error;
 
     while(iter_has_next(iter) == true) {
         struct user *curr_user = iter_get(iter);
 
-        if (user_is_logged_on(curr_user) == false) {
+        if (valid_whoelse(curr_user, exception) == false) {
             iter_next(iter);
             continue;
         }
 
-        if (user_equal(curr_user, exception) == true) {
-            iter_next(iter);
-            continue;
-        }
-
-        char *name = malloc(MAX_UNAME);
-        if (name == NULL) {
-            list_free(name_list, free);
-            iter_free(iter);
-            return NULL;
-        }
-        memcpy(name, curr_user->uname, MAX_UNAME);
-
-        if (list_add(name_list, name) < 0) {
-            free(name);
-            list_free(name_list, free);
-            iter_free(iter);
-            return NULL;
-        }
+        if (add_username_to_list(name_list, curr_user) < 0)
+            goto user_whoelse_error;
 
         // Yeahhhh boiiii, This is C++ in the wild
         iter_next(iter);
@@ -265,4 +253,55 @@ struct list *user_whoelse(struct list *users, struct user *exception)
 
     iter_free(iter);
     return name_list;
+
+user_whoelse_error:
+    iter_free(iter);
+    list_free(name_list, free);
+    return NULL;
+}
+
+struct list *user_whoelsesince
+(
+    struct list *users,
+    struct user *exception,
+    time_t off_time
+)
+{
+    // TODO Implement user_whoelsesince (with the timeout)
+    (void) off_time;
+    (void) users;
+    (void) exception;
+    return NULL;
+}
+
+/* Add the username of curr_user to the name list. Return -1 on error,
+ * zero is returned on success */
+static int add_username_to_list(struct list *name_list, struct user *curr_user)
+{
+    char *name = malloc(MAX_UNAME);
+    if (name == NULL)
+        return -1;
+
+    memcpy(name, curr_user->uname, MAX_UNAME);
+
+    if (list_add(name_list, name) < 0) {
+        free(name);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* Return true if the user is valid for the whoelse command, otherwise
+ * return false */
+static bool valid_whoelse(struct user *curr_user, struct user *exception)
+{
+
+    if (user_is_logged_on(curr_user) == false)
+        return false;
+
+    if (user_equal(curr_user, exception) == true)
+        return false;
+
+    return true;
 }

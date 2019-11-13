@@ -210,6 +210,54 @@ int recv_payload_sw(int sock, struct sw_payload *sw)
     );
 }
 
+int recv_payload_cws(int sock, struct cws_payload *cws)
+{
+    return recv_payload(
+        sock,
+        client_whoelse_since,
+        cws,
+        sizeof(struct cws_payload)
+    );
+}
+
+int recv_payload_sws(int sock, struct sws_payload *sws)
+{
+    return recv_payload(
+        sock,
+        server_whoelse_since,
+        sws,
+        sizeof(struct sws_payload)
+    );
+}
+
+int send_payload_cws(int sock)
+{
+    struct cws_payload cws = {0};
+    cws.dummy_ = '\0';
+
+    return send_payload(
+        sock,
+        client_whoelse_since,
+        sizeof(cws),
+        0, // ignored
+        (void **) &cws
+    );
+}
+
+int send_payload_sws(int sock, char name[MAX_UNAME])
+{
+    struct sws_payload sws = {0};
+    memcpy(sws.username, name, MAX_UNAME);
+
+    return send_payload(
+        sock,
+        server_whoelse_since,
+        sizeof(sws),
+        0, // ignored
+        (void **) &sws
+    );
+
+}
 int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH])
 {
     struct ccmd_payload ccmd = {0};

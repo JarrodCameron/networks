@@ -46,6 +46,7 @@ static int deploy_command(char cmd[MAX_COMMAND]);
 static int dual_select(int *sock_ret, int *stdin_ret);
 static void run_client (void);
 static int cmd_whoelse(struct scmd_payload *scmd);
+static int cmd_whoelsesince(struct scmd_payload *scmd);
 
 /* The name of each command and the respective handle */
 struct {
@@ -55,7 +56,7 @@ struct {
     // WARNING: Do not change the order!!!
     {.name = "message",      .handle = NULL},
     {.name = "broadcast",    .handle = NULL},
-    {.name = "whoelsesince", .handle = NULL},
+    {.name = "whoelsesince", .handle = cmd_whoelsesince},
     {.name = "whoelse",      .handle = cmd_whoelse},
     {.name = "block",        .handle = NULL},
     {.name = "unblock",      .handle = NULL},
@@ -215,11 +216,10 @@ static int cmd_whoelse(struct scmd_payload *scmd)
 
     uint64_t num_users = scmd->extra;
 
-    if (num_users == 1) {
+    if (num_users == 1)
         printf("There is 1 user online\n");
-    } else {
+    else
         printf("There are %ld users online\n", num_users);
-    }
 
     uint64_t i;
     for (i = 0; i < num_users; i++) {
@@ -227,7 +227,32 @@ static int cmd_whoelse(struct scmd_payload *scmd)
         if (ret < 0)
             return -1;
 
-        printf("%ld. %s\n", i+1, sw.username);
+        printf("%ld. \"%s\"\n", i+1, sw.username);
+    }
+
+    return 0;
+}
+
+/* Used for when the client sends to whoelsesince command to the server */
+static int cmd_whoelsesince(struct scmd_payload *scmd)
+{
+    struct sws_payload sws = {0};
+    int ret;
+
+    uint64_t num_users = scmd->extra;
+
+    if (num_users == 1)
+        printf("There is 1 recently logged in user\n");
+    else
+        printf("There are %ld recently logged in users\n", num_users);
+
+    uint64_t i;
+    for (i = 0; i < num_users; i++) {
+        ret = recv_payload_sws(client.sock, &sws);
+        if (ret < 0)
+            return -1;
+
+        printf("%ld. \"%s\"\n", i+1, sws.username);
     }
 
     return 0;
