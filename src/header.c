@@ -183,9 +183,30 @@ int recv_payload_scmd(int sock, struct scmd_payload *scmd)
 {
     return recv_payload(
         sock,
-        client_command,
+        server_command,
         scmd,
         sizeof(struct scmd_payload)
+    );
+}
+
+int recv_payload_cw(int sock, struct cw_payload *cw)
+{
+    return recv_payload(
+        sock,
+        client_whoelse,
+        cw,
+        sizeof(struct cw_payload)
+    );
+
+}
+
+int recv_payload_sw(int sock, struct sw_payload *sw)
+{
+    return recv_payload(
+        sock,
+        server_whoelse,
+        sw,
+        sizeof(struct sw_payload)
     );
 }
 
@@ -299,6 +320,34 @@ int send_payload_spa(int sock, enum status_code code)
         sizeof(spa),
         0, // ignored
         (void **) &spa
+    );
+}
+
+int send_payload_cw(int sock)
+{
+    struct cw_payload cw = {0};
+    cw.dummy_ = '\0';
+
+    return send_payload(
+        sock,
+        client_whoelse,
+        sizeof(cw),
+        0, // ignored
+        (void **) &cw
+    );
+}
+
+int send_payload_sw(int sock, char name[MAX_UNAME])
+{
+    struct sw_payload sw = {0};
+    memcpy(sw.username, name, MAX_UNAME);
+
+    return send_payload(
+        sock,
+        server_whoelse,
+        sizeof(sw),
+        0, // ignored
+        (void **) &sw
     );
 }
 

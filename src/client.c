@@ -45,6 +45,25 @@ static int stdin_read_handle(void);
 static int deploy_command(char cmd[MAX_COMMAND]);
 static int dual_select(int *sock_ret, int *stdin_ret);
 static void run_client (void);
+static int cmd_whoelse(struct scmd_payload *scmd);
+
+/* The name of each command and the respective handle */
+struct {
+    const char *name;
+    int (*handle)(struct scmd_payload *);
+} commands[] = {
+    // WARNING: Do not change the order!!!
+    {.name = "message",      .handle = NULL},
+    {.name = "broadcast",    .handle = NULL},
+    {.name = "whoelsesince", .handle = NULL},
+    {.name = "whoelse",      .handle = cmd_whoelse},
+    {.name = "block",        .handle = NULL},
+    {.name = "unblock",      .handle = NULL},
+    {.name = "logout",       .handle = NULL},
+    {.name = "startprivate", .handle = NULL},
+    {.name = "private",      .handle = NULL},
+    {.name = "stopprivate",  .handle = NULL},
+};
 
 /* Print usage and exit */
 static void usage (void)
@@ -188,10 +207,90 @@ static int stdin_read_handle(void)
     return 0;
 }
 
+/* Used for when the client sends to whoelse command to the server */
+static int cmd_whoelse(struct scmd_payload *scmd)
+{
+    struct sw_payload sw = {0};
+    int ret;
+
+    uint64_t num_users = scmd->extra;
+
+    if (num_users == 1) {
+        printf("There is 1 user online\n");
+    } else {
+        printf("There are %ld users online\n", num_users);
+    }
+
+    uint64_t i;
+    for (i = 0; i < num_users; i++) {
+        ret = recv_payload_sw(client.sock, &sw);
+        if (ret < 0)
+            return -1;
+
+        printf("%ld. %s\n", i+1, sw.username);
+    }
+
+    return 0;
+}
+
+/* Return the first legit character of a line. Non-legit characters are spaces
+ * and null bytes */
+static const char *get_first_non_space(const char *line)
+{
+    const char *ret = line;
+    while (*ret == ' ' || *ret == '\0')
+        ret++;
+
+    if (*ret == '\0')
+        return NULL;
+
+    return ret;
+}
+
 /* Send the command to the server and handle the response appropriately */
 static int deploy_command(char cmd[MAX_COMMAND])
 {
-    return send_payload_ccmd(client.sock, cmd);
+    struct scmd_payload scmd = {0};
+
+    if (send_payload_ccmd(client.sock, cmd) < 0)
+        return -1;
+
+    if (recv_payload_scmd(client.sock, &scmd) < 0) {
+        return -1;
+    }
+
+    switch (scmd.code) {
+        case server_error:
+            printf("Internal server error!\n");
+            return -1;
+
+        case bad_command:
+            printf("Invalid command: \"%s\"\n", cmd);
+            return 0;
+
+        case task_ready:
+            /* The task is ready to be handled */
+            break;
+
+        default:
+            panic("Unknown error code: \"%s\"(%d)\n",
+                code_to_str(scmd.code), scmd.code
+            );
+    }
+
+    const char *start = get_first_non_space(cmd);
+    if (start == NULL)
+        return 0;
+
+    unsigned int i;
+    for (i = 0; i < ARRSIZE(commands); i++) {
+        const char *name = commands[i].name;
+        if (strncmp(start, name, strlen(name)-1) == 0) {
+            return commands[i].handle(&scmd);
+        }
+    }
+
+    panic("The server should of returned \"bad_command\"!\n");
 }
 
 /* Use the "select" system call for stdin and the server socket. If the

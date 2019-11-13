@@ -48,4 +48,7 @@ int tokenise(const char *line, struct tokens **toks);
 /* Helper function to free the tokens struct */
 void tokens_free(struct tokens *t);
 
+/* Fill the "buffer" with null bytes for a length of "len" */
+void zero_out(void *buffer, unsigned int len);
+
 #endif /* UTIL_H */

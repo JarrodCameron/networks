@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "iter.h"
 #include "list.h"
 #include "synch.h"
 #include "util.h"
@@ -106,6 +107,7 @@ void *list_rm (struct list *list, void *item, int (*cmp)(void*, void*))
         if (cmp(item, curr->item) == 0) {
             ret = curr->item;
             rm_node (list, curr);
+            free(curr);
             lock_release(list->lock);
             return ret;
         }
@@ -142,6 +144,9 @@ void *list_get (struct list *list, int (*cmp)(void*, void*), void *arg)
 /* Simply remove the node from the linked list */
 static void rm_node (struct list *list, struct node *node)
 {
+    if (node == NULL)
+        return;
+
     if (list->first == node) {
         list->first = node->next;
     } else {
@@ -190,7 +195,60 @@ int list_len(struct list *list)
 
 void *list_pop(struct list *list)
 {
-    // TODO
-    (void) list;
-    return NULL;
+    if (list == NULL)
+        return NULL;
+
+    void *ret;
+    lock_acquire(list->lock);
+    if (list->len == 0)
+        ret = NULL;
+    else {
+        ret = list->first->item;
+        rm_node(list, list->first);
+    }
+    lock_release(list->lock);
+
+    return ret;
+}
+
+/* Return the next node after "n" */
+static void *set_iter_next(UNUSED void *c, void *n)
+{
+    struct node *curr = n;
+    return curr->next;
+}
+
+/* Return if there is a next node in the list */
+static bool set_iter_has_next(UNUSED void *c, void *n)
+{
+    return (n != NULL);
+}
+
+/* Return the item from the node */
+static void *set_iter_get(UNUSED void *c, void *n)
+{
+    struct node *curr = n;
+    return curr->item;
+}
+
+struct iter *list_iter_init(struct list *list)
+{
+    assert(list != NULL);
+
+    struct iter_funcs iter_funcs = {0};
+    iter_funcs.next = set_iter_next;
+    iter_funcs.has_next = set_iter_has_next;
+    iter_funcs.get = set_iter_get;
+
+    struct iter *ret = iter_init(&iter_funcs, list, list->first);
+    return ret;
+}
+
+bool list_is_empty(struct list *list)
+{
+    bool ret;
+    lock_acquire(list->lock);
+    ret = (list->len == 0);
+    lock_release(list->lock);
+    return ret;
 }

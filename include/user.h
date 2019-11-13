@@ -7,6 +7,7 @@
 #include "list.h"
 #include "config.h"
 
+/* Defined in user.c */
 struct user;
 
 /* Given the username and password, create and return a user. */
@@ -49,7 +50,10 @@ bool user_is_logged_on(struct user *user);
 
 /* Return a list of users for the whoelse command, the exception is the user
  * to ignore in the list. The list returned contains (char *)'s */
-struct list *user_whoelse(struct user *exception);
+struct list *user_whoelse(struct list *users, struct user *exception);
+
+/* Return true/false if the two users are equals */
+bool user_equal(struct user *user1, struct user *user2);
 
 // For debugging, print the list of users
 void user_list_dump(struct list *users);

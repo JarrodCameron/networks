@@ -77,7 +77,7 @@ struct timeval sec_to_tv(int seconds)
  * am re-doing my assignment in python on the last day. */
 int tokenise(const char *line, struct tokens **toks)
 {
-    if (line == NULL)
+    if (line == NULL || line[0] == '\0')
         return 0;
 
     *toks = NULL;
@@ -98,6 +98,7 @@ int tokenise(const char *line, struct tokens **toks)
     if (max_seps < 0) {
         // Command doesnt exist
         tokens_free(tokens);
+        free(temp);
         return 0;
     }
 
@@ -187,4 +188,14 @@ void tokens_free(struct tokens *t) {
 
     free(t->toks);
     free(t);
+}
+
+void zero_out(void *buffer, unsigned int len)
+{
+    assert(buffer != NULL);
+    char *array = buffer;
+    unsigned int i;
+    for (i = 0; i < len; i++) {
+        array[i] = '\0';
+    }
 }

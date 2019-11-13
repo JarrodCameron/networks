@@ -1,8 +1,13 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include <stdbool.h>
+
+#include "iter.h"
+
 /* Defined in list.c */
 struct list;
+//struct iterator;
 
 /* Initialise the list, return NULL on error */
 struct list *list_init (void);
@@ -44,5 +49,11 @@ int list_len(struct list *list);
 /* Pop a random item of the list, most likely the first or the last,
  * which item that is popped of is undefined */
 void *list_pop(struct list *list);
+
+/* Return true if the list is empty, otherwise reutrn false */
+bool list_is_empty(struct list *list);
+
+/* Create an iterator to traverse the list */
+struct iter *list_iter_init(struct list *list);
 
 #endif /* LIST_H */

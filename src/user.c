@@ -208,9 +208,61 @@ bool user_is_blocked(struct user *user)
     return ret;
 }
 
-struct list *user_whoelse(struct user *exception)
+bool user_equal(struct user *user1, struct user *user2)
 {
-    // TODO
-    (void) exception;
-    return NULL;
+    if (user_uname_cmp(user1, user2->uname) != 0)
+        return false;
+
+    if (user_pword_cmp(user1, user2->pword) != 0)
+        return false;
+
+    return true;
+}
+
+struct list *user_whoelse(struct list *users, struct user *exception)
+{
+    struct iter *iter = list_iter_init(users);
+    if (iter == NULL)
+        return NULL;
+
+    struct list *name_list = list_init();
+    if (name_list == NULL) {
+        iter_free(iter);
+        return NULL;
+    }
+
+    while(iter_has_next(iter) == true) {
+        struct user *curr_user = iter_get(iter);
+
+        if (user_is_logged_on(curr_user) == false) {
+            iter_next(iter);
+            continue;
+        }
+
+        if (user_equal(curr_user, exception) == true) {
+            iter_next(iter);
+            continue;
+        }
+
+        char *name = malloc(MAX_UNAME);
+        if (name == NULL) {
+            list_free(name_list, free);
+            iter_free(iter);
+            return NULL;
+        }
+        memcpy(name, curr_user->uname, MAX_UNAME);
+
+        if (list_add(name_list, name) < 0) {
+            free(name);
+            list_free(name_list, free);
+            iter_free(iter);
+            return NULL;
+        }
+
+        // Yeahhhh boiiii, This is C++ in the wild
+        iter_next(iter);
+    }
+
+    iter_free(iter);
+    return name_list;
 }

@@ -124,31 +124,33 @@ static int set_timeout(int sock)
 /* Handle sending the client the result of the who else command */
 static int whoelse_service (int sock, struct tokens *toks, struct user *user)
 {
-    struct list *whoelse_list = user_whoelse(user);
+    (void) toks;
+    struct list *whoelse_list = user_whoelse(server.users, user);
     if (whoelse_list == NULL) {
-        // TODO Send internal server error
         return -1;
     }
 
     int len = list_len(whoelse_list);
-    int ret = send_payload_scmd(sock, server_command, len);
+    int ret = send_payload_scmd(sock, task_ready, len);
     if (ret < 0) {
         list_free(whoelse_list, free);
         return -1;
     }
 
-    for (int i = 0; i < len; i++) {
-        // Send the user TODO
-        // First you need to do the todo in header.h
+    while (list_is_empty(whoelse_list) == false) {
+        char *name = list_pop(whoelse_list);
+        printf("name: %s\n", name);
+        if (send_payload_sw(sock, name) < 0) {
+            list_free(whoelse_list, free);
+            free(name);
+            return -1;
+        }
+        free(name);
     }
-    (void) len;
 
+    list_free(whoelse_list, free);
 
-    // TODO
-    (void) toks;
-    (void) sock;
-    (void) user;
-    return -1;
+    return 0;
 }
 
 /* The client has given us a command which must be serviced, return a pointer
@@ -204,10 +206,10 @@ static int service_query
 
     struct tokens *toks = NULL;
     int ret = tokenise(ccmd->cmd, &toks);
-    if (ret < 0) {
-        send_payload_scmd(sock, server_error, 0 /* ignored */);
+    if (ret < 0)
         return -1;
-    } else if (toks == NULL) {
+
+    if (toks == NULL) {
         ret = send_payload_scmd(sock, bad_command, 0 /* ignored */);
         return (ret < 0) ? -1 : 0;
     }
@@ -268,8 +270,8 @@ static int timeout_user(int sock, struct user *user)
 /* Initialise the users list from the CRED_LIST file */
 static int init_users (void)
 {
-    char uname[MAX_UNAME];
-    char pword[MAX_PWORD];
+    char uname[MAX_UNAME] = {0};
+    char pword[MAX_PWORD] = {0};
 
     server.users = list_init();
     if (server.users == NULL)
@@ -286,6 +288,9 @@ static int init_users (void)
 
         if (list_add(server.users, user) < 0)
             goto init_users_fail;
+
+        zero_out(uname, MAX_UNAME);
+        zero_out(pword, MAX_PWORD);
     }
     fclose(f);
     return 0;

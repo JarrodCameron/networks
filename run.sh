@@ -2,13 +2,16 @@
 
 # Tmux window names
 SESSION="Networks"
-WINNAME="user_timeout"
+WINNAME="whoelse_client"
 
 # Args for client/server
 SERVER_PORT="1024"
 BLOCK_DURATION="0"
-TIMEOUT="5"
+TIMEOUT="60"
 IP_ADDR="127.0.0.1"
+
+# Flags for valgrind
+VAL="valgrind --track-origins=yes --leak-check=full"
 
 # Exit if non-zero reutrn status
 set -e
@@ -27,8 +30,8 @@ function get_free_portnum () {
 port="$(get_free_portnum)"
 
 # Command to run in the tmux session
-server_cmd="./server $port $BLOCK_DURATION $TIMEOUT"
-client_cmd="./client $IP_ADDR $port"
+server_cmd="$VAL ./server $port $BLOCK_DURATION $TIMEOUT"
+client_cmd="sleep 1 && $VAL ./client $IP_ADDR $port"
 
 # Pre-defined input for the client's
 #client1_input="john C-m smith"
@@ -58,20 +61,24 @@ echo "    $client_cmd"
 echo
 
 # /-------------------------\
-# | [SERVER]                |
-# |                         |
-# |                         |
+# | [SERVER]   | [CLIENT 1] |
+# |            |            |
+# |            |            |
 # |-------------------------|
-# | [CLIENT 1] | [CLIENT 2] |
+# | [CLIENT 2] | [CLIENT 3] |
 # |            |            |
 # |            |            |
 # \-------------------------/
 
 tmux new-session -d -s "$SESSION" -n "$WINNAME" # Create session, don't attach, set names
 tmux split-window -v -t "$SESSION"              # Create horizontal split
-tmux split-window -h -t "$SESSION"              # Create horizontal split
+tmux split-window -h -t 2              # Create horizontal split
+tmux split-window -h -t 1              # Create horizontal split
 tmux send-keys -t 1 "clear && echo '[SERVER]' && $server_cmd" C-m  # Command for top panel
+sleep 0.05
 tmux send-keys -t 2 "clear && echo '[CLIENT 1]' && $client_cmd" C-m  # Command for bot panel
+sleep 0.05
 tmux send-keys -t 3 "clear && echo '[CLIENT 2]' && $client_cmd" C-m  # Command for bot panel
-tmux last-pane -t "$SESSION"                    # Go back to '[CLIENT 1]'
+sleep 0.05
+tmux send-keys -t 4 "clear && echo '[CLIENT 3]' && $client_cmd" C-m  # Command for bot panel
 tmux attach-session -t "$SESSION"               # Attach to session

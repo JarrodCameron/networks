@@ -31,7 +31,6 @@ enum task_id {
 
     client_whoelse       = 9,   /* */
     server_whoelse       = 10,  /* Send the user a logged on user */
-    // TODO Implement these senders, receivers, and structs
 };
 
 /* Return the task_id as a string */
@@ -82,6 +81,14 @@ struct scmd_payload {           /* task = server_command */
     uint64_t extra;             /* Purpose interprited by client */
 };
 
+struct cw_payload {             /* task = client_whoelse */
+    char dummy_;                /* ignored */
+};
+
+struct sw_payload {             /* task = server_whoelse */
+    char username[MAX_UNAME];   /* The username of a logged in user */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return 0 on success, -errno is returned on error */
@@ -127,5 +134,11 @@ int recv_payload_ccmd(int sock, struct ccmd_payload *ccmd);
 
 int send_payload_scmd(int sock, enum status_code code, uint64_t extra);
 int recv_payload_scmd(int sock, struct scmd_payload *scmd);
+
+int send_payload_cw(int sock);
+int recv_payload_cw(int sock, struct cw_payload *cw);
+
+int send_payload_sw(int sock, char name[MAX_UNAME]);
+int recv_payload_sw(int sock, struct sw_payload *sw);
 
 #endif /* HEADER_H */

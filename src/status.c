@@ -11,19 +11,20 @@
 #include "util.h"
 
 static const char *strings[] = {
-    [1]  = "init_success",
-    [2]  = "init_failed",
-    [4]  = "bad_uname",
-    [5]  = "bad_pword",
-    [6]  = "user_blocked",
-    [7]  = "server_error",
-    [8]  = "client_error",
-    [9]  = "comms_error",
-    [10] = "already_on",
-    [11] = "task_success",
-    [12] = "kill_me_now",
-    [13] = "time_out",
-    [14] = "bad_command",
+    [init_success] = "init_success",
+    [init_failed]  = "init_failed",
+    [bad_uname]    = "bad_uname",
+    [bad_pword]    = "bad_pword",
+    [user_blocked] = "user_blocked",
+    [server_error] = "server_error",
+    [client_error] = "client_error",
+    [comms_error]  = "comms_error",
+    [already_on]   = "already_on",
+    [task_success] = "task_success",
+    [kill_me_now]  = "kill_me_now",
+    [time_out]     = "time_out",
+    [bad_command]  = "bad_command",
+    [task_ready]   = "task_ready",
 };
 
 
