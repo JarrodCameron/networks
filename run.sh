@@ -7,7 +7,7 @@ WINNAME="whoelse_time"
 # Args for client/server
 SERVER_PORT="1024"
 BLOCK_DURATION="0"
-TIMEOUT="60"
+TIMEOUT="600"
 IP_ADDR="127.0.0.1"
 
 # Flags for valgrind

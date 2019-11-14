@@ -15,6 +15,7 @@
 #include <time.h>
 
 #include "list.h"
+#include "server.h"
 #include "synch.h"
 #include "user.h"
 #include "util.h"
@@ -36,6 +37,9 @@ static uint32_t user_count = 1;
 /* Helper functions */
 static bool valid_whoelse(struct user *user, struct user *execption);
 static int add_username_to_list(struct list *name_list, struct user *curr_user);
+static bool valid_whoelsesince (struct user *curr, struct user *exce, time_t offt);
+static bool has_logged_on_recently(struct user *user, time_t off_time);
+static bool has_logged_on(struct user *user);
 
 struct user *init_user (const char uname[MAX_UNAME], const char pword[MAX_PWORD])
 {
@@ -267,11 +271,78 @@ struct list *user_whoelsesince
     time_t off_time
 )
 {
-    // TODO Implement user_whoelsesince (with the timeout)
     (void) off_time;
-    (void) users;
-    (void) exception;
+    struct iter *iter = NULL;
+    struct list *name_list = NULL;
+
+    iter = list_iter_init(users);
+    if (iter == NULL)
+        goto user_whoelsesince_error;
+
+    name_list = list_init();
+    if (name_list == NULL)
+        goto user_whoelsesince_error;
+
+    while(iter_has_next(iter) == true) {
+        struct user *curr_user = iter_get(iter);
+
+        if (valid_whoelsesince(curr_user, exception, off_time) == false) {
+            iter_next(iter);
+            continue;
+        }
+
+        if (add_username_to_list(name_list, curr_user) < 0)
+            goto user_whoelsesince_error;
+
+        iter_next(iter);
+    }
+
+    iter_free(iter);
+    return name_list;
+
+user_whoelsesince_error:
+    iter_free(iter);
+    list_free(name_list, free);
     return NULL;
+}
+
+/* Return true if the "curr_user" is valid for the whoelsesince command */
+static bool valid_whoelsesince
+(
+    struct user *curr_user,
+    struct user *exception,
+    time_t off_time
+)
+{
+    if (user_equal(curr_user, exception) == true)
+        return false;
+
+    if (server_uptime() < off_time && has_logged_on(curr_user) == true) {
+        return true;
+    }
+
+    if (has_logged_on_recently(curr_user, off_time) == true) {
+        return true;
+    }
+
+    return false;
+}
+
+/* Return true if the user has logged on, return false if the user has
+ * never logged on */
+static bool has_logged_on(struct user *user)
+{
+    assert(user != NULL);
+    return (user->log_time != 0);
+}
+
+/* Return true of the user has logged on in the last "off_time" seconds,
+ * otherwise return false */
+static bool has_logged_on_recently(struct user *user, time_t off_time)
+{
+    assert(user != NULL);
+    time_t time_since_log_on = time(NULL) - user->log_time;
+    return (time_since_log_on <= off_time);
 }
 
 /* Add the username of curr_user to the name list. Return -1 on error,

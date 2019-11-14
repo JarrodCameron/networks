@@ -536,7 +536,7 @@ static int set_start_time(void)
     if (server.time_started == (time_t) -1)
         return -1;
 
-    return -1;
+    return 0;
 }
 
 int main (int argc, char **argv)
