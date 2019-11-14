@@ -93,140 +93,62 @@ int send_payload(
 
 const char *id_to_str(enum task_id id)
 {
-    const char *names[] = {
-        [client_init_conn] = "client_init_conn",
-        [server_init_conn] = "server_init_conn",
-        [client_uname_auth] = "client_uname_auth",
-        [server_uname_auth] = "server_uname_auth",
-        [client_pword_auth] = "client_pword_auth",
-        [server_pword_auth] = "server_pword_auth",
-        [client_command] = "client_command",
-        [server_command] = "server_command",
-    };
-    if (id <= 0 || id >= ARRSIZE(names))
-        return "{Invalid task_id}";
-
-    return names[id];
+    switch(id) {
+        case client_init_conn:     return "client_init_conn";
+        case server_init_conn:     return "server_init_conn";
+        case client_uname_auth:    return "client_uname_auth";
+        case server_uname_auth:    return "server_uname_auth";
+        case client_pword_auth:    return "client_pword_auth";
+        case server_pword_auth:    return "server_pword_auth";
+        case client_command:       return "client_command";
+        case server_command:       return "server_command";
+        case client_whoelse:       return "client_whoelse";
+        case server_whoelse:       return "server_whoelse";
+        case client_whoelse_since: return "client_whoelse_since";
+        case server_whoelse_since: return "server_whoelse_since";
+        case client_broad_logon:   return "client_broad_logon";
+        case server_broad_logon:   return "server_broad_logon";
+        default:                   return "{Invalid task_id}";
+    }
 }
 
-int recv_payload_sic(int sock, struct sic_payload *sic)
-{
-    return recv_payload(
-        sock,
-        server_init_conn,
-        sic,
-        sizeof(struct sic_payload)
-    );
+#define MAKE_RECV(HEAD,TYPE)                                          \
+int recv_payload_##TYPE(int sock, struct TYPE ## _payload * TYPE)    \
+{                                                                   \
+    return recv_payload(                                          \
+        sock,                                                       \
+        HEAD,                                                       \
+        TYPE,                                                     \
+        sizeof(struct TYPE ## _payload)                               \
+    );                                                              \
 }
 
-int recv_payload_cic(int sock, struct cic_payload *cic)
-{
-    return recv_payload(
-        sock,
-        client_init_conn,
-        cic,
-        sizeof(struct cic_payload)
-    );
-}
+MAKE_RECV(server_init_conn, sic)
+MAKE_RECV(client_init_conn, cic)
+MAKE_RECV(client_uname_auth, cua)
+MAKE_RECV(server_uname_auth, sua)
+MAKE_RECV(client_pword_auth, cpa)
+MAKE_RECV(server_pword_auth, spa)
+MAKE_RECV(client_command, ccmd)
+MAKE_RECV(server_command, scmd)
+MAKE_RECV(client_whoelse, cw)
+MAKE_RECV(server_whoelse, sw)
+MAKE_RECV(client_whoelse_since, cws)
+MAKE_RECV(server_whoelse_since, sws)
+MAKE_RECV(client_broad_logon, cbon)
+MAKE_RECV(server_broad_logon, sbon)
 
-int recv_payload_cua(int sock, struct cua_payload *cua)
+int send_payload_cbon(int sock)
 {
-    return recv_payload(
-        sock,
-        client_uname_auth,
-        cua,
-        sizeof(struct cua_payload)
-    );
-}
+    struct cbon_payload cbon = {0};
+    cbon.dummy_ = '\0';
 
-int recv_payload_sua(int sock, struct sua_payload *sua)
-{
-    return recv_payload(
+    return send_payload(
         sock,
-        server_uname_auth,
-        sua,
-        sizeof(struct sua_payload)
-    );
-}
-
-int recv_payload_cpa(int sock, struct cpa_payload *cpa)
-{
-    return recv_payload(
-        sock,
-        client_pword_auth,
-        cpa,
-        sizeof(struct cpa_payload)
-    );
-}
-
-int recv_payload_spa(int sock, struct spa_payload *spa)
-{
-    return recv_payload(
-        sock,
-        server_pword_auth,
-        spa,
-        sizeof(struct spa_payload)
-    );
-}
-
-int recv_payload_ccmd(int sock, struct ccmd_payload *ccmd)
-{
-    return recv_payload(
-        sock,
-        client_command,
-        ccmd,
-        sizeof(struct ccmd_payload)
-    );
-}
-
-int recv_payload_scmd(int sock, struct scmd_payload *scmd)
-{
-    return recv_payload(
-        sock,
-        server_command,
-        scmd,
-        sizeof(struct scmd_payload)
-    );
-}
-
-int recv_payload_cw(int sock, struct cw_payload *cw)
-{
-    return recv_payload(
-        sock,
-        client_whoelse,
-        cw,
-        sizeof(struct cw_payload)
-    );
-
-}
-
-int recv_payload_sw(int sock, struct sw_payload *sw)
-{
-    return recv_payload(
-        sock,
-        server_whoelse,
-        sw,
-        sizeof(struct sw_payload)
-    );
-}
-
-int recv_payload_cws(int sock, struct cws_payload *cws)
-{
-    return recv_payload(
-        sock,
-        client_whoelse_since,
-        cws,
-        sizeof(struct cws_payload)
-    );
-}
-
-int recv_payload_sws(int sock, struct sws_payload *sws)
-{
-    return recv_payload(
-        sock,
-        server_whoelse_since,
-        sws,
-        sizeof(struct sws_payload)
+        client_broad_logon,
+        sizeof(cbon),
+        0, // ignored
+        (void **) &cbon
     );
 }
 
@@ -241,6 +163,20 @@ int send_payload_cws(int sock)
         sizeof(cws),
         0, // ignored
         (void **) &cws
+    );
+}
+
+int send_payload_sbon(int sock, char name[MAX_UNAME])
+{
+    struct sbon_payload sbon = {0};
+    memcpy(sbon.username, name, MAX_UNAME);
+
+    return send_payload(
+        sock,
+        server_broad_logon,
+        sizeof(sbon),
+        0, // ignored
+        (void **) &sbon
     );
 }
 

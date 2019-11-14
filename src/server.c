@@ -5,9 +5,6 @@
  *                                         *
  *******************************************/
 
-/* Unique identifier for the server */
-#define I_AM_SERVER
-
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -26,6 +23,7 @@
 
 #include <pthread.h>
 
+#include "connection.h"
 #include "header.h"
 #include "logger.h"
 #include "slogin.h"
@@ -47,15 +45,10 @@ static struct {
 
     struct list *users;         /* List of all valid users */
 
-    struct list *threads;       /* List of each spawned thread */
+    struct list *connections;   /* All connections to clients */
 
     time_t time_started;        /* The exact time the server started */
 } server = {0};
-
-struct connection {
-    int sock;                   /* Socket for this connection */
-    struct cic_payload cic;     /* Data deilivered by client */
-};
 
 /* Helper functions */
 static void usage (void);
@@ -64,14 +57,12 @@ static int init_args (const char *port, const char *dur, const char *timeout);
 static int init_server (void);
 static void free_users (void);
 static int dispatch_event (struct connection *conn);
-static struct connection *init_conn (void);
-static void free_conn (struct connection *conn);
-static void free_conn_not_sock(struct connection *conn);
 static void client_command_handler(int sock, struct user *user);
 static int set_timeout(int sock);
 static int timeout_user(int sock, struct user *user);
 static int whoelse_service (int sock, struct tokens *toks, struct user *user);
 static int whoelsesince_service (int sock, struct tokens *, struct user *user);
+static int ptr_cmp (void *a, void *b);
 
 /* The name of each command and the respective handle */
 struct {
@@ -105,22 +96,39 @@ static void usage (void)
  * If the user can't be authenicated the thread is killed */
 static void *thread_landing (void *arg)
 {
-    struct user *user;
     struct connection *conn = arg;
-    int sock = conn->sock;
-    free_conn_not_sock(conn);
+    int sock = conn_get_sock(conn);
+    struct user *curr_user;
 
     // Send the ACK, unblock client
-    if (send_payload_sic(sock, init_success) < 0)
+    if (send_payload_sic(sock, init_success) < 0) {
+        conn_free(conn);
         return NULL;
+    }
 
-    user = auth_user(sock, server.users);
-    if (user == NULL)
+    curr_user = auth_user(sock, server.users);
+    if (curr_user == NULL) {
+        conn_free(conn);
         return NULL;
+    }
+    conn_set_user(conn, curr_user);
+
+    if (conn_broad_log_on(server.connections, curr_user) < 0) {
+        conn_free(conn);
+        return NULL;
+    }
+
+    if (list_add(server.connections, conn) < 0) {
+        conn_free(conn);
+        return NULL;
+    }
 
     set_timeout(sock);
 
-    client_command_handler(sock, user);
+    client_command_handler(sock, curr_user);
+
+    list_rm(server.connections, conn, ptr_cmp);
+    conn_free(conn);
 
     return NULL;
 }
@@ -378,12 +386,12 @@ static int init_server (void)
     server_address.sin_port = htons(server.port); // Port
     server.listen_sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    server.threads = list_init();
-    if (server.threads == NULL)
+    server.connections = list_init();
+    if (server.connections == NULL)
         return -1;
 
     if (server.listen_sock < 0) {
-        list_free(server.threads, NULL);
+        list_free(server.connections, NULL);
         return -1;
     }
 
@@ -394,7 +402,7 @@ static int init_server (void)
     );
     if (ret < 0) {
         close(server.listen_sock);
-        list_free(server.threads, NULL);
+        list_free(server.connections, NULL);
         return -1;
     }
 
@@ -404,7 +412,7 @@ static int init_server (void)
     );
     if (ret < 0) {
         close(server.listen_sock);
-        list_free(server.threads, NULL);
+        list_free(server.connections, NULL);
         return -1;
     }
 
@@ -427,61 +435,16 @@ static int ptr_cmp (void *a, void *b)
 /* Probe handler list to dispatch even and spawn new thread */
 static int dispatch_event (struct connection *conn)
 {
-
     pthread_t *tid = malloc(sizeof(pthread_t));
     if (tid == NULL)
         return -1;
 
-    assert(server.threads != NULL);
-    if (list_add(server.threads, tid) < 0) {
-        free (tid);
-        return -1;
-    }
+    conn_set_thread(conn, tid);
 
-    if (pthread_create(tid, NULL, thread_landing, conn) != 0) {
-        list_rm(server.threads, tid, ptr_cmp);
-        free (tid);
+    if (pthread_create(tid, NULL, thread_landing, conn) != 0)
         return -1;
-    }
 
     return 0;
-}
-
-/* Initialise and reutrn a connection struct */
-static struct connection *init_conn (void)
-{
-    struct connection *conn;
-    conn = malloc(sizeof(struct connection));
-    if (!conn)
-        return NULL;
-    *conn = (struct connection) {0};
-
-    // To indicate invalid socket
-    conn->sock = -1;
-
-    return conn;
-}
-
-/* Free the connection and it's state, close any fd's */
-static void free_conn (struct connection *conn)
-{
-    if (!conn)
-        return;
-
-    if (conn->sock >= 0)
-        close (conn->sock);
-
-    free_conn_not_sock(conn);
-}
-
-/* The same as free_conn but does not close the socket. This is good for
- * preventing memory leak while keeping the socket open */
-static void free_conn_not_sock(struct connection *conn)
-{
-    if (conn == NULL)
-        return;
-
-    free(conn);
 }
 
 /* Where the actual magic happens.
@@ -505,21 +468,23 @@ static void run_server (void)
 
         logs("We have a connection!!!\n");
 
-        conn = init_conn ();
+        conn = conn_init ();
         if (conn == NULL) {
-            free_conn(conn);
+            conn_free(conn);
             continue;
         }
-        conn->sock = sock;
+        conn_set_sock(conn, sock);
 
-        if (recv_payload_cic(conn->sock, &(conn->cic)) < 0) {
-            free_conn(conn);
+        struct cic_payload cic = {0};
+        if (recv_payload_cic(sock, &cic) < 0) {
+            conn_free(conn);
             continue;
         }
+        conn_set_cic(conn, cic);
 
         if (dispatch_event (conn) < 0) {
             elogs("Failed to server request\n");
-            free_conn(conn);
+            conn_free(conn);
             continue;
         }
 
@@ -569,7 +534,7 @@ int main (int argc, char **argv)
         elogs("Get a better computer\n");
         free_users();
         close(server.listen_sock);
-        list_free(server.threads, NULL);
+        list_free(server.connections, (void*) conn_free);
         return 1;
     }
 

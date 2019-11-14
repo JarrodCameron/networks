@@ -2,7 +2,7 @@
 
 # Tmux window names
 SESSION="Networks"
-WINNAME="whoelse_time"
+WINNAME="Author: Jarrod Cameron (z5210220)"
 
 # Args for client/server
 SERVER_PORT="1024"

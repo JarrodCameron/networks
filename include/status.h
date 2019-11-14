@@ -19,6 +19,8 @@ enum status_code {
     time_out     = 13,  /* The user has timed out, they will be logged off */
     bad_command  = 14,  /* Client sent a bad command to the server */
     task_ready   = 15,  /* The task is ready and will be done soon */
+    broad_logon  = 16,  /* When the server broadcasts a user is logged on */
+    broad_logoff = 17,  /* When the server broadcasts a user is logged off */
 };
 
 /* Return the value of the status_code as a human readable string */

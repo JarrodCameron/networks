@@ -34,6 +34,9 @@ enum task_id {
 
     client_whoelse_since = 11,  /* */
     server_whoelse_since = 12,  /* Logged on user since time `T' */
+
+    client_broad_logon   = 13,  /* */
+    server_broad_logon   = 14,  /* Server telling client user has logged on */
 };
 
 /* Return the task_id as a string */
@@ -100,6 +103,14 @@ struct sws_payload {            /* task = server_whoelse_since */
     char username[MAX_UNAME];   /* The desired username */
 };
 
+struct cbon_payload {           /* task = client_broad_logon */
+    char dummy_;                /* ignored */
+};
+
+struct sbon_payload {           /* task = server_broad_logon */
+    char username[MAX_UNAME];   /* User that just logged in */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return 0 on success, -errno is returned on error */
@@ -158,5 +169,10 @@ int recv_payload_cws(int sock, struct cws_payload *cws);
 int send_payload_sws(int sock, char name[MAX_UNAME]);
 int recv_payload_sws(int sock, struct sws_payload *sws);
 
+int send_payload_cbon(int sock);
+int recv_payload_cbon(int sock, struct cbon_payload *cbon);
+
+int send_payload_sbon(int sock, char username[MAX_UNAME]);
+int recv_payload_sbon(int sock, struct sbon_payload *sbon);
 
 #endif /* HEADER_H */

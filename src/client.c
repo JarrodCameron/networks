@@ -38,7 +38,8 @@ static void usage (void);
 static int init_args (const char *ip_addr, const char *port);
 static int conn_to_server (int sock);
 static int init_connection (void);
-static int handle_client_timeout(void);
+static NORETURN int handle_client_timeout(void);
+static int handle_broad_logon(void);
 static int handle_scmd(struct scmd_payload *scmd);
 static int socket_read_handle(void);
 static int stdin_read_handle(void);
@@ -142,12 +143,23 @@ static int init_connection (void)
 }
 
 /* The client has timed out and needs to be logged off */
-static int handle_client_timeout(void)
+static NORETURN int handle_client_timeout(void)
 {
     printf("You have timed out!\n");
     printf("Logging off now.\n");
-    exit(1); // Can we just shut down or do we need to log off?
-    return -1;
+    exit(1);
+}
+
+/* When a different client logs on their name is broadcasted, this is the
+ * handler for when that happens */
+static int handle_broad_logon(void)
+{
+    struct sbon_payload sbon = {0};
+    if (recv_payload_sbon(client.sock, &sbon) < 0)
+        return -1;
+
+    printf("New user online: \"%s\"\n", sbon.username);
+    return 0;
 }
 
 /* A command was received by the server, handle the command from here */
@@ -161,7 +173,11 @@ static int handle_scmd(struct scmd_payload *scmd)
             printf("You entered an invalid command! <\n");
             return 0;
 
+        case broad_logon:
+            return handle_broad_logon();
+
         default:
+            check();
             panic("Received unknown server command: \"%s\"(%d)\n",
                 code_to_str(scmd->code), scmd->code
             );
@@ -174,17 +190,17 @@ static int socket_read_handle(void)
 {
     struct header head;
     void *payload;
-    int ret;
+    int ret = 0;
 
     ret = get_payload(client.sock, &head, &payload);
     if (ret < 0)
         return -1;
 
     if (head.task_id == server_command)
-        handle_scmd(payload);
+        ret = handle_scmd(payload);
 
     free(payload);
-    return 0;
+    return ret;
 }
 
 /* This is called when the main loop receives a message from standard input

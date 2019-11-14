@@ -11,7 +11,7 @@ CFLAGS=-Wall -Wextra -g3 -ggdb -I$(INCDIR)
 
 LDFLAGS=-pthread
 
-SERVER_DEPS=user.o list.o header.o slogin.o logger.o util.o synch.o status.o iter.o server.o
+SERVER_DEPS=user.o list.o header.o slogin.o logger.o util.o synch.o status.o iter.o server.o connection.o
 CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o queue.o synch.o iter.o
 
 .PHONY: all clean run full
@@ -19,10 +19,10 @@ CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o queue.o synch.o 
 all: $(BUILDDIR) $(BINS)
 
 client: $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
-	$(CC) $(LDFLAGS) -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
+	$(CC) $(LDFLAGS) -DI_AM_CLIENT -o client $(addprefix $(BUILDDIR)/, $(CLIENT_DEPS))
 
 server: $(addprefix $(BUILDDIR)/, $(SERVER_DEPS))
-	$(CC) $(LDFLAGS) -o server $(addprefix $(BUILDDIR)/, $(SERVER_DEPS))
+	$(CC) $(LDFLAGS) -DI_AM_SERVER -o server $(addprefix $(BUILDDIR)/, $(SERVER_DEPS))
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
