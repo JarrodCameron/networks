@@ -31,6 +31,8 @@ struct connection {             /* Contains all information for
 static bool valid_log_on(struct connection *conn, struct user *user);
 static int send_broadcast_logon(struct connection *conn, struct user *new_user);
 static int deploy_logon_payload(int sock, struct user *user);
+static int send_broadcast_msg(struct connection *, struct user *, char *);
+static bool valid_broad_msg(struct connection *conn, struct user *user);
 
 struct connection *conn_init(void)
 {
@@ -153,6 +155,71 @@ int conn_broad_log_on(struct list *conns, struct user *user)
     iter_free(iter);
 
     return 0;
+}
+
+int conn_broad_msg
+(
+    struct list *conns,
+    struct user *user,
+    char msg[MAX_MSG_LENGTH]
+)
+{
+    struct iter *iter = list_iter_init(conns);
+    if (iter == NULL)
+        return -1;
+
+    while (iter_has_next(iter) == true) {
+        struct connection *conn = iter_get(iter);
+        if (send_broadcast_msg(conn, user, msg) < 0) {
+            iter_free(iter);
+            return -1;
+        }
+        iter_next(iter);
+    }
+    iter_free(iter);
+    return 0;
+}
+
+/* Used to send the broadcast payload to a particular user to show that
+ * the "msg" has been sent */
+static int send_broadcast_msg
+(
+    struct connection *conn,
+    struct user *user,
+    char *msg
+)
+{
+    lock_acquire(conn->lock);
+
+    if (valid_broad_msg(conn, user) == false) {
+        lock_release(conn->lock);
+        return 0;
+    }
+
+    if (send_payload_scmd(conn->sock, broad_msg, 0 /* ignored */) < 0) {
+        lock_release(conn->lock);
+        return -1;
+    }
+
+    if (send_payload_sbm(conn->sock, msg) < 0) {
+        lock_release(conn->lock);
+        return -1;
+    }
+
+    lock_release(conn->lock);
+    return 0;
+}
+
+/* Return true if the "conn" can be used to send the broadcast message */
+static bool valid_broad_msg(struct connection *conn, struct user *user)
+{
+    if (user_is_logged_on(conn->user) == false)
+        return false;
+
+    if (user_equal(conn->user, user) == true)
+        return false;
+
+    return true;
 }
 
 /* Return true if this connection should be used to broadcast that the user

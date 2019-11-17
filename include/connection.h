@@ -37,4 +37,8 @@ void conn_set_cic(struct connection *, struct cic_payload);
  * return 0 */
 int conn_broad_log_on(struct list *conns, struct user *);
 
+/* Broadcast "msg" to all active connections, execpted for the "user" (since
+ * it is pointless to send the same message to them self) */
+int conn_broad_msg(struct list *conns, struct user *, char msg[MAX_MSG_LENGTH]);
+
 #endif /* CONNECTION_H */

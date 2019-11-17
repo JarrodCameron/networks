@@ -37,6 +37,9 @@ enum task_id {
 
     client_broad_logon   = 13,  /* */
     server_broad_logon   = 14,  /* Server telling client user has logged on */
+
+    client_broad_msg     = 15,  /* */
+    server_broad_msg     = 16,  /* Server telling client msg is broadcasted */
 };
 
 /* Return the task_id as a string */
@@ -111,6 +114,14 @@ struct sbon_payload {           /* task = server_broad_logon */
     char username[MAX_UNAME];   /* User that just logged in */
 };
 
+struct cbm_payload {            /* task = client_broad_msg */
+    char dummy_;                /* ignored */
+};
+
+struct sbm_payload {            /* task = server_broad_msg */
+    char msg[MAX_MSG_LENGTH];   /* The message to broadcast */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return 0 on success, -errno is returned on error */
@@ -174,5 +185,11 @@ int recv_payload_cbon(int sock, struct cbon_payload *cbon);
 
 int send_payload_sbon(int sock, char username[MAX_UNAME]);
 int recv_payload_sbon(int sock, struct sbon_payload *sbon);
+
+int send_payload_cbm(int sock);
+int recv_payload_cbm(int sock, struct cbm_payload *cbm);
+
+int send_payload_sbm(int sock, char msg[MAX_MSG_LENGTH]);
+int recv_payload_sbm(int sock, struct sbm_payload *sbm);
 
 #endif /* HEADER_H */

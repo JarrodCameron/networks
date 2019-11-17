@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "clogin.h"
 #include "config.h"
@@ -43,11 +44,15 @@ static int handle_broad_logon(void);
 static int handle_scmd(struct scmd_payload *scmd);
 static int socket_read_handle(void);
 static int stdin_read_handle(void);
+static bool is_help_cmd(char *cmd);
+static void cmd_help(void);
+static int cmd_whoelse(struct scmd_payload *scmd);
+static int cmd_whoelsesince(struct scmd_payload *scmd);
+static int cmd_broadcast(UNUSED struct scmd_payload *scmd);
+static const char *get_first_non_space(const char *line);
 static int deploy_command(char cmd[MAX_COMMAND]);
 static int dual_select(int *sock_ret, int *stdin_ret);
 static void run_client (void);
-static int cmd_whoelse(struct scmd_payload *scmd);
-static int cmd_whoelsesince(struct scmd_payload *scmd);
 
 /* The name of each command and the respective handle */
 struct {
@@ -56,7 +61,7 @@ struct {
 } commands[] = {
     // WARNING: Do not change the order!!!
     {.name = "message",      .handle = NULL},
-    {.name = "broadcast",    .handle = NULL},
+    {.name = "broadcast",    .handle = cmd_broadcast},
     {.name = "whoelsesince", .handle = cmd_whoelsesince},
     {.name = "whoelse",      .handle = cmd_whoelse},
     {.name = "block",        .handle = NULL},
@@ -162,6 +167,17 @@ static int handle_broad_logon(void)
     return 0;
 }
 
+/* Handle the broadcast message that was sent be another client */
+static int handle_broad_msg(void)
+{
+    struct sbm_payload sbm = {0};
+    if (recv_payload_sbm(client.sock, &sbm) < 0)
+        return -1;
+
+    printf("Received broadcast: \"%s\"\n", sbm.msg);
+    return 0;
+}
+
 /* A command was received by the server, handle the command from here */
 static int handle_scmd(struct scmd_payload *scmd)
 {
@@ -176,8 +192,10 @@ static int handle_scmd(struct scmd_payload *scmd)
         case broad_logon:
             return handle_broad_logon();
 
+        case broad_msg:
+            return handle_broad_msg();
+
         default:
-            check();
             panic("Received unknown server command: \"%s\"(%d)\n",
                 code_to_str(scmd->code), scmd->code
             );
@@ -222,6 +240,38 @@ static int stdin_read_handle(void)
         return -1;
     }
     return 0;
+}
+
+/* Return true if the "cmd" is asking for help, otherwise return false */
+static bool is_help_cmd(char *cmd)
+{
+    const char *start = get_first_non_space(cmd);
+    if (start == NULL)
+        return false;
+
+    if (strncmp(start, "help", 4) == 0)
+        return true;
+
+    if (strncmp(start, "?", 1) == 0)
+        return true;
+
+    return false;
+}
+
+/* Print the help for the client, don't need to talk to the server */
+static void cmd_help(void)
+{
+    printf("All commands: \n");
+    printf("  message <user> <message>\n");
+    printf("  broadcase <message>\n");
+    printf("  whoelse\n");
+    printf("  whoelsesince <time>\n");
+    printf("  block <user>\n");
+    printf("  unblock <user>\n");
+    printf("  logout\n");
+    printf("  startprivate <user>\n");
+    printf("  private <user> <message>\n");
+    printf("  stopprivate <user>\n");
 }
 
 /* Used for when the client sends to whoelse command to the server */
@@ -274,6 +324,13 @@ static int cmd_whoelsesince(struct scmd_payload *scmd)
     return 0;
 }
 
+/* Used for when the client sends the "broadcast" command to the server */
+static int cmd_broadcast(UNUSED struct scmd_payload *scmd)
+{
+    // Client doesn't get response form server, therefore we pass
+    return 0;
+}
+
 /* Return the first legit character of a line. Non-legit characters are spaces
  * and null bytes */
 static const char *get_first_non_space(const char *line)
@@ -291,10 +348,16 @@ static const char *get_first_non_space(const char *line)
 /* Send the command to the server and handle the response appropriately */
 static int deploy_command(char cmd[MAX_COMMAND])
 {
+    if (is_help_cmd(cmd) == true) {
+        cmd_help();
+        return 0;
+    }
+
     struct scmd_payload scmd = {0};
 
-    if (send_payload_ccmd(client.sock, cmd) < 0)
+    if (send_payload_ccmd(client.sock, cmd) < 0) {
         return -1;
+    }
 
     if (recv_payload_scmd(client.sock, &scmd) < 0) {
         return -1;

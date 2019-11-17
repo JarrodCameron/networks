@@ -62,6 +62,7 @@ static int set_timeout(int sock);
 static int timeout_user(int sock, struct user *user);
 static int whoelse_service (int sock, struct tokens *toks, struct user *user);
 static int whoelsesince_service (int sock, struct tokens *, struct user *user);
+static int broadcast_service (int sock, struct tokens *, struct user *user);
 static int ptr_cmp (void *a, void *b);
 
 /* The name of each command and the respective handle */
@@ -71,7 +72,7 @@ struct {
 } command_services[] = {
     // WARNING: Do not change the order!!!
     {.name = "message",      .service = NULL},
-    {.name = "broadcast",    .service = NULL},
+    {.name = "broadcast",    .service = broadcast_service},
     {.name = "whoelsesince", .service = whoelsesince_service},
     {.name = "whoelse",      .service = whoelse_service},
     {.name = "block",        .service = NULL},
@@ -223,6 +224,25 @@ static int whoelsesince_service
     return 0;
 }
 
+static int broadcast_service
+(
+    UNUSED int sock,
+    struct tokens *toks,
+    struct user *user
+)
+{
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0) {
+        return -1;
+    }
+
+    char *msg = malloc(MAX_MSG_LENGTH);
+    zero_out(msg, MAX_MSG_LENGTH);
+    strncpy(msg, toks->toks[1], MAX_MSG_LENGTH - 1);
+    int ret = conn_broad_msg(server.connections, user, toks->toks[1]);
+    free(msg);
+    return ret;
+}
+
 time_t server_uptime(void)
 {
     return time(NULL) - server.time_started;
@@ -232,7 +252,6 @@ time_t server_uptime(void)
  * to the function that does the servicing */
 static service_handle lookup_service(const char *cmd)
 {
-
     unsigned int i;
     for (i = 0; i < ARRSIZE(command_services); i++) {
         const char *name = command_services[i].name;
@@ -265,8 +284,9 @@ static int service_query
 
     struct tokens *toks = NULL;
     int ret = tokenise(ccmd->cmd, &toks);
-    if (ret < 0)
+    if (ret < 0) {
         return -1;
+    }
 
     if (toks == NULL) {
         ret = send_payload_scmd(sock, bad_command, 0 /* ignored */);

@@ -21,6 +21,7 @@ enum status_code {
     task_ready   = 15,  /* The task is ready and will be done soon */
     broad_logon  = 16,  /* When the server broadcasts a user is logged on */
     broad_logoff = 17,  /* When the server broadcasts a user is logged off */
+    broad_msg    = 18,  /* General broadcast message by a user */
 };
 
 /* Return the value of the status_code as a human readable string */

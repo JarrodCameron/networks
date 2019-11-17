@@ -112,14 +112,14 @@ const char *id_to_str(enum task_id id)
     }
 }
 
-#define MAKE_RECV(HEAD,TYPE)                                          \
-int recv_payload_##TYPE(int sock, struct TYPE ## _payload * TYPE)    \
+#define MAKE_RECV(HEAD,TYPE)                                        \
+int recv_payload_##TYPE(int sock, struct TYPE ## _payload * TYPE)   \
 {                                                                   \
-    return recv_payload(                                          \
+    return recv_payload(                                            \
         sock,                                                       \
         HEAD,                                                       \
-        TYPE,                                                     \
-        sizeof(struct TYPE ## _payload)                               \
+        TYPE,                                                       \
+        sizeof(struct TYPE ## _payload)                             \
     );                                                              \
 }
 
@@ -137,6 +137,36 @@ MAKE_RECV(client_whoelse_since, cws)
 MAKE_RECV(server_whoelse_since, sws)
 MAKE_RECV(client_broad_logon, cbon)
 MAKE_RECV(server_broad_logon, sbon)
+MAKE_RECV(client_broad_msg, cbm)
+MAKE_RECV(server_broad_msg, sbm)
+
+int send_payload_cbm(int sock)
+{
+    struct cbm_payload cbm = {0};
+    cbm.dummy_ = '\0';
+
+    return send_payload(
+        sock,
+        client_broad_msg,
+        sizeof(cbm),
+        0, // ignored
+        (void **) &cbm
+    );
+}
+
+int send_payload_sbm(int sock, char msg[MAX_MSG_LENGTH])
+{
+    struct sbm_payload sbm = {0};
+    memcpy(sbm.msg, msg, MAX_MSG_LENGTH);
+
+    return send_payload(
+        sock,
+        server_broad_msg,
+        sizeof(sbm),
+        0, // ignored
+        (void **) &sbm
+    );
+}
 
 int send_payload_cbon(int sock)
 {
