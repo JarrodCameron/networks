@@ -11,10 +11,10 @@
 struct user;
 
 /* Given the username and password, create and return a user. */
-struct user *init_user (const char uname[MAX_UNAME], const char pword[MAX_PWORD]);
+struct user *user_init (const char uname[MAX_UNAME], const char pword[MAX_PWORD]);
 
 /* Free the user from memory */
-void free_user (struct user *user);
+void user_free (struct user *user);
 
 /* Return strncmp() for uname equal to the user's username */
 int user_uname_cmp (struct user *user, const char uname[MAX_UNAME]);
@@ -57,6 +57,21 @@ struct list *user_whoelse(struct list *users, struct user *exception);
 struct list *user_whoelsesince(
     struct list *users, struct user *exception, time_t off_time
 );
+
+/* This is used when the user "blocker" wants to block the "victim" */
+enum status_code user_block
+(
+    struct list *users,
+    struct user *blocker,
+    const char *victim
+);
+
+/* Return true if the sender is on the reciver's block list, otherwise
+ * false is returned */
+bool user_on_blocklist (struct user *reciver, struct user *sender);
+
+/* Add the message to the users backlog of messages */
+int user_add_to_backlog(struct user *user, const char *name, const char *msg);
 
 /* Return true/false if the two users are equals */
 bool user_equal(struct user *user1, struct user *user2);

@@ -22,6 +22,11 @@ enum status_code {
     broad_logon  = 16,  /* When the server broadcasts a user is logged on */
     broad_logoff = 17,  /* When the server broadcasts a user is logged off */
     broad_msg    = 18,  /* General broadcast message by a user */
+    dup_error    = 19,  /* There is a duplicate causing problems */
+    msg_stored   = 20,  /* The message has to be stored for later use */
+    code_true    = 21,  /* The equivalent of "true" */
+    code_false   = 22,  /* The equivalent of "false" */
+    client_msg   = 23,  /* Message from the client */
 };
 
 /* Return the value of the status_code as a human readable string */

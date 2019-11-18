@@ -31,6 +31,11 @@
 #include "user.h"
 #include "util.h"
 
+// TODO Tell user when broadcast was successful
+// TODO Don't broadcast to blocked off user
+// TODO Don't broadcast logging on to blocked off user
+// TODO On three bad attempts user should be blocked for block_duration
+
 /* For returning a service function pointer */
 typedef int (*service_handle)(int sock, struct tokens *, struct user *);
 
@@ -51,11 +56,13 @@ static struct {
 } server = {0};
 
 /* Helper functions */
+static int message_service(int sock, struct tokens *toks, struct user *user);
 static void usage (void);
 static int init_users (void);
 static int init_args (const char *port, const char *dur, const char *timeout);
 static int init_server (void);
 static void free_users (void);
+static int block_service(int sock, struct tokens *toks, struct user *user);
 static int dispatch_event (struct connection *conn);
 static void client_command_handler(int sock, struct user *user);
 static int set_timeout(int sock);
@@ -64,6 +71,7 @@ static int whoelse_service (int sock, struct tokens *toks, struct user *user);
 static int whoelsesince_service (int sock, struct tokens *, struct user *user);
 static int broadcast_service (int sock, struct tokens *, struct user *user);
 static int ptr_cmp (void *a, void *b);
+static enum status_code deploy_message(struct user *r, struct user *s, const char *msg);
 
 /* The name of each command and the respective handle */
 struct {
@@ -71,11 +79,11 @@ struct {
     service_handle service;
 } command_services[] = {
     // WARNING: Do not change the order!!!
-    {.name = "message",      .service = NULL},
+    {.name = "message",      .service = message_service},
     {.name = "broadcast",    .service = broadcast_service},
     {.name = "whoelsesince", .service = whoelsesince_service},
     {.name = "whoelse",      .service = whoelse_service},
-    {.name = "block",        .service = NULL},
+    {.name = "block",        .service = block_service},
     {.name = "unblock",      .service = NULL},
     {.name = "logout",       .service = NULL},
     {.name = "startprivate", .service = NULL},
@@ -152,6 +160,25 @@ static int set_timeout(int sock)
     return ret;
 }
 
+/* The current user wants to block user toks->toks[1] */
+static int block_service(int sock, struct tokens *toks, struct user *user)
+{
+    assert(toks->toks[1] != NULL);
+
+    char *safe_name = safe_strndup(toks->toks[1], MAX_UNAME);
+    if (safe_name == NULL)
+        return -1;
+
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
+        return -1;
+
+    enum status_code code = user_block(server.users, user, safe_name);
+    if (code == server_error)
+        return -1;
+
+    return send_payload_sbu(sock, code);
+}
+
 /* Handle sending the client the result of the whoelse command */
 static int whoelse_service
 (
@@ -224,12 +251,79 @@ static int whoelsesince_service
     return 0;
 }
 
-static int broadcast_service
+/* Used for the user to send another message to the user by the name
+ * of "toks->toks[1]". The message is stored in "toks->toks[2]" */
+static int message_service(int sock, struct tokens *toks, struct user *user)
+{
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
+        return -1;
+
+    if (user_uname_cmp(user, toks->toks[1]) == 0)
+        return send_payload_sdmr(sock, dup_error);
+
+    struct user *receiver = user_get_by_name(server.users, toks->toks[1]);
+    if (receiver == NULL)
+        return send_payload_sdmr(sock, bad_uname);
+
+    if (user_on_blocklist(receiver, user) == true)
+        return send_payload_sdmr(sock, user_blocked);
+
+    char *safe_msg = malloc(MAX_MSG_LENGTH);
+    if (safe_msg == NULL)
+        return -1;
+    zero_out(safe_msg, MAX_MSG_LENGTH);
+    strncpy(safe_msg, toks->toks[2], MAX_MSG_LENGTH);
+
+    enum status_code code = deploy_message(receiver, user, safe_msg);
+    if (code == kill_me_now) {
+        free(safe_msg);
+        return -1;
+    }
+
+    free(safe_msg);
+    return send_payload_sdmr(sock, code);
+}
+
+/* Do the actual sending of the message */
+static enum status_code deploy_message
 (
-    UNUSED int sock,
-    struct tokens *toks,
-    struct user *user
+    struct user *receiver,
+    struct user *sender,
+    const char *msg
 )
+{
+    struct connection *recv_conn;
+
+    char *sender_name = user_get_uname(sender);
+    if (sender_name == NULL)
+        return kill_me_now;
+
+    if (conn_get_by_user(server.connections, receiver, &recv_conn) < 0)
+        return -1;
+
+    if (recv_conn == NULL) {
+        if (user_add_to_backlog(receiver, sender_name, msg) < 0)
+            return kill_me_now;
+        return msg_stored;
+    }
+
+    int sock = conn_get_sock(recv_conn);
+
+    if (send_payload_scmd(sock, client_msg, 0 /* ignored */) < 0) {
+        free(sender_name);
+        return kill_me_now;
+    }
+
+    if (send_payload_sdmm(sock, sender_name, msg) < 0) {
+        free(sender_name);
+        return kill_me_now;
+    }
+
+    return task_success;
+}
+
+/* Used to broadcast the message sent by the server to all other clients */
+static int broadcast_service(int sock, struct tokens *toks, struct user *user)
 {
     if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0) {
         return -1;
@@ -360,7 +454,7 @@ static int init_users (void)
 
     while (fscanf(f, "%s %s", uname, pword) == 2) {
 
-        struct user *user = init_user(uname, pword);
+        struct user *user = user_init(uname, pword);
 
         if (user == NULL)
             goto init_users_fail;
@@ -444,7 +538,7 @@ static void free_users (void)
 {
     if (server.users == NULL)
         return;
-    list_free(server.users, (void*) free_user);
+    list_free(server.users, (void*) user_free);
 }
 
 static int ptr_cmp (void *a, void *b)

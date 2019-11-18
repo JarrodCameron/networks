@@ -35,6 +35,7 @@ struct {
 } client = {0};
 
 /* Helper functions */
+static int cmd_message(struct scmd_payload *scmd);
 static void usage (void);
 static int init_args (const char *ip_addr, const char *port);
 static int conn_to_server (int sock);
@@ -49,6 +50,7 @@ static void cmd_help(void);
 static int cmd_whoelse(struct scmd_payload *scmd);
 static int cmd_whoelsesince(struct scmd_payload *scmd);
 static int cmd_broadcast(UNUSED struct scmd_payload *scmd);
+static int cmd_block(struct scmd_payload *scmd);
 static const char *get_first_non_space(const char *line);
 static int deploy_command(char cmd[MAX_COMMAND]);
 static int dual_select(int *sock_ret, int *stdin_ret);
@@ -60,11 +62,11 @@ struct {
     int (*handle)(struct scmd_payload *);
 } commands[] = {
     // WARNING: Do not change the order!!!
-    {.name = "message",      .handle = NULL},
+    {.name = "message",      .handle = cmd_message},
     {.name = "broadcast",    .handle = cmd_broadcast},
     {.name = "whoelsesince", .handle = cmd_whoelsesince},
     {.name = "whoelse",      .handle = cmd_whoelse},
-    {.name = "block",        .handle = NULL},
+    {.name = "block",        .handle = cmd_block},
     {.name = "unblock",      .handle = NULL},
     {.name = "logout",       .handle = NULL},
     {.name = "startprivate", .handle = NULL},
@@ -178,6 +180,20 @@ static int handle_broad_msg(void)
     return 0;
 }
 
+/* This is used to handle message from the server that were send from a
+ * different client */
+static int handle_client_msg(void)
+{
+    struct sdmm_payload sdmm = {0};
+    if (recv_payload_sdmm(client.sock, &sdmm) < 0)
+        return -1;
+
+    printf("Received direct message\n");
+    printf("Sender: %s\n", sdmm.sender);
+    printf("Message: %s\n", sdmm.msg);
+    return 0;
+}
+
 /* A command was received by the server, handle the command from here */
 static int handle_scmd(struct scmd_payload *scmd)
 {
@@ -194,6 +210,9 @@ static int handle_scmd(struct scmd_payload *scmd)
 
         case broad_msg:
             return handle_broad_msg();
+
+        case client_msg:
+            return handle_client_msg();
 
         default:
             panic("Received unknown server command: \"%s\"(%d)\n",
@@ -214,8 +233,8 @@ static int socket_read_handle(void)
     if (ret < 0)
         return -1;
 
-    if (head.task_id == server_command)
-        ret = handle_scmd(payload);
+    assert(head.task_id == server_command);
+    ret = handle_scmd(payload);
 
     free(payload);
     return ret;
@@ -274,6 +293,38 @@ static void cmd_help(void)
     printf("  stopprivate <user>\n");
 }
 
+/* Used for when the client wants to block a user */
+static int cmd_block(UNUSED struct scmd_payload *scmd)
+{
+    struct sbu_payload sbu = {0};
+    if (recv_payload_sbu(client.sock, &sbu) < 0)
+        return -1;
+
+    switch (sbu.code) {
+        case user_blocked:
+            printf("User is already blocked!\n");
+            return 0;
+
+        case bad_uname:
+            printf("Invalid username!\n");
+            return 0;
+
+        case task_success:
+            printf("User successfully blocked!\n");
+            return 0;
+
+        case dup_error:
+            printf("You can't blocker yourself\n");
+            return 0;
+
+        default:
+            panic("Unkown sbu_payload, received: \"%s\"(%d)\n",
+                code_to_str(sbu.code), sbu.code
+            );
+
+    }
+}
+
 /* Used for when the client sends to whoelse command to the server */
 static int cmd_whoelse(struct scmd_payload *scmd)
 {
@@ -329,6 +380,43 @@ static int cmd_broadcast(UNUSED struct scmd_payload *scmd)
 {
     // Client doesn't get response form server, therefore we pass
     return 0;
+}
+
+/* This is used when this client sends a message (via the server) to
+ * another client. */
+static int cmd_message(UNUSED struct scmd_payload *scmd)
+{
+    struct sdmr_payload sdmr = {0};
+    if (recv_payload_sdmr(client.sock, &sdmr) < 0)
+        return -1;
+
+    switch (sdmr.code) {
+        case task_success:
+            printf("Message sent successfully\n");
+            return 0;
+
+        case msg_stored:
+            printf("User off line, message stored\n");
+            return 0;
+
+        case user_blocked:
+            printf("You have been blocked by receiver, message dropped\n");
+            return 0;
+
+        case dup_error:
+            printf("You can't send a message to yourself, message dropped\n");
+            return 0;
+
+        case bad_uname:
+            printf("You entered an invalid username!\n");
+            return 0;
+
+        default:
+            panic("Received unknown response: \"%s\"(%d)\n",
+                code_to_str(sdmr.code),
+                sdmr.code
+            );
+    }
 }
 
 /* Return the first legit character of a line. Non-legit characters are spaces

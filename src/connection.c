@@ -180,6 +180,30 @@ int conn_broad_msg
     return 0;
 }
 
+int conn_get_by_user(struct list *conns, struct user *user, struct connection **ret)
+{
+    struct iter *iter = list_iter_init(conns);
+    if (iter == NULL)
+        return -1;
+
+    while (iter_has_next(iter) == true) {
+        struct connection *conn = iter_get(iter);
+        lock_acquire(conn->lock);
+        if (user_equal(conn->user, user) == true) {
+            *ret = conn;
+            lock_release(conn->lock);
+            return 0;
+        }
+        lock_release(conn->lock);
+        iter_next(iter);
+    }
+
+    iter_free(iter);
+    *ret = NULL;
+    return 0;
+}
+
+
 /* Used to send the broadcast payload to a particular user to show that
  * the "msg" has been sent */
 static int send_broadcast_msg

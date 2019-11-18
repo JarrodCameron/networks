@@ -166,8 +166,6 @@ static int get_max_seps(const char *line)
     if (start == NULL)
         return -1;
 
-    assert(ARRSIZE(cmd_names) == ARRSIZE(cmd_max_seps));
-
     unsigned int i;
     for (i = 0; i < ARRSIZE(cmd_names); i++) {
         const char *name = cmd_names[i];
@@ -198,4 +196,24 @@ void zero_out(void *buffer, unsigned int len)
     for (i = 0; i < len; i++) {
         array[i] = '\0';
     }
+}
+
+void *alloc_copy(const void *buf, unsigned int len)
+{
+    void *ret = malloc(len);
+    if (ret == NULL)
+        return NULL;
+    zero_out(ret, len);
+    memcpy(ret, buf, len);
+    return ret;
+}
+
+void *safe_strndup(const void *buf, unsigned int len)
+{
+    void *ret = malloc(len);
+    if (ret == NULL)
+        return NULL;
+    zero_out(ret, len);
+    strncpy(ret, buf, len);
+    return ret;
 }

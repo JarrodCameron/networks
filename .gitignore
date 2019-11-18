@@ -4,3 +4,4 @@ build
 cscope.out
 *.swp
 tags
+vgcore.*

@@ -26,8 +26,11 @@ struct user {
     uint32_t id;
     bool blocked;
     bool logged_on;
-    time_t log_time;    /* Epoch time since user logged on */
-    struct lock *lock;
+    time_t log_time;            /* Epoch time since user logged on */
+    struct lock *lock;          /* Prevent race conditions */
+    struct list *block_list;    /* The list of blocked users, all char*'s */
+    struct list *backlog;       /* Backlog of messages to send the client when
+                                 * they log in */
 };
 
 /* Unique counter for all of the users, so that they don't need to be
@@ -35,13 +38,18 @@ struct user {
 static uint32_t user_count = 1;
 
 /* Helper functions */
+static int user_cmp(void *u1, void *u2);
+static bool already_blocked(struct list *block_list, const char *victim);
+static struct sdmm_payload *generate_sdmm(const char *name, const char *msg);
+static int add_to_block_list(struct list *block_list, const char *name);
 static bool valid_whoelse(struct user *user, struct user *execption);
 static int add_username_to_list(struct list *name_list, struct user *curr_user);
 static bool valid_whoelsesince (struct user *curr, struct user *exce, time_t offt);
 static bool has_logged_on_recently(struct user *user, time_t off_time);
+static int uname_cmp_wrapper(void *n1, void *n2);
 static bool has_logged_on(struct user *user);
 
-struct user *init_user (const char uname[MAX_UNAME], const char pword[MAX_PWORD])
+struct user *user_init (const char uname[MAX_UNAME], const char pword[MAX_PWORD])
 {
     struct user *ret = malloc(sizeof(struct user));
     if (!ret)
@@ -51,6 +59,21 @@ struct user *init_user (const char uname[MAX_UNAME], const char pword[MAX_PWORD]
 
     ret->lock = lock_init();
     if (ret->lock == NULL) {
+        free(ret);
+        return NULL;
+    }
+
+    ret->block_list = list_init();
+    if (ret->block_list == NULL) {
+        lock_free(ret->lock);
+        free(ret);
+        return NULL;
+    }
+
+    ret->backlog = list_init();
+    if (ret->backlog == NULL) {
+        lock_free(ret->lock);
+        list_free(ret->block_list, NULL);
         free(ret);
         return NULL;
     }
@@ -70,7 +93,7 @@ struct user *init_user (const char uname[MAX_UNAME], const char pword[MAX_PWORD]
     return ret;
 }
 
-void free_user (struct user *user)
+void user_free (struct user *user)
 {
     // This should only be called in single threaded states.
     // If this is called with multiple threads there are
@@ -306,6 +329,95 @@ user_whoelsesince_error:
     return NULL;
 }
 
+/* This is used when the user "blocker" wants to block the "victim" */
+enum status_code user_block
+(
+    struct list *users,
+    struct user *blocker,
+    const char *victim_name
+)
+{
+    struct user *victim = user_get_by_name(users, victim_name);
+    if (victim == NULL)
+        return bad_uname;
+
+    if (user_uname_cmp(blocker, victim_name) == 0)
+        return dup_error;
+
+    if (already_blocked(blocker->block_list, victim_name) == true)
+        return user_blocked;
+
+    if (add_to_block_list(blocker->block_list, victim_name) < 0)
+        return server_error;
+
+    return task_success;
+}
+
+bool user_on_blocklist (struct user *reciver, struct user *sender)
+{
+    check();
+    user_dump(reciver);
+    user_dump(sender);
+    check();
+
+    struct user *user = list_get(reciver->block_list, user_cmp, sender->uname);
+    return (user != NULL);
+}
+
+int user_add_to_backlog(struct user *user, const char *name, const char *msg)
+{
+    struct sdmm_payload *sdmm = generate_sdmm(name, msg);
+    if (sdmm == NULL)
+        return -1;
+
+    if (list_add(user->backlog, sdmm) < 0)
+        return -1;
+
+    return 0;
+}
+
+/* Given the name (of the sender) and the message generate a sdmm_payload */
+static struct sdmm_payload *generate_sdmm(const char *name, const char *msg)
+{
+    struct sdmm_payload *sdmm = malloc(sizeof(struct sdmm_payload));
+    if (sdmm == NULL)
+        return NULL;
+
+    *sdmm = (struct sdmm_payload) {0};
+
+    strncpy(sdmm->sender, name, MAX_UNAME);
+    strncpy(sdmm->msg, msg, MAX_MSG_LENGTH);
+    return sdmm;
+}
+
+/* Add the victim_name to the block list, return -1 on error, otherwise
+ * return 0 */
+static int add_to_block_list(struct list *block_list, const char *name)
+{
+    char *name_dup = alloc_copy(name, MAX_UNAME);
+    if (name_dup == NULL)
+        return -1;
+
+    if (list_add(block_list, name_dup) < 0) {
+        free(name_dup);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* Return true of the "victim" is in the "blocked_list" */
+static bool already_blocked(struct list *block_list, const char *victim)
+{
+    return !!list_get(block_list, uname_cmp_wrapper, (void *) victim);
+}
+
+/* Wrapper for some yummy void pointers to compare two usernames */
+static int uname_cmp_wrapper(void *n1, void *n2)
+{
+    return strncmp(n1, n2, MAX_UNAME);
+}
+
 /* Return true if the "curr_user" is valid for the whoelsesince command */
 static bool valid_whoelsesince
 (
@@ -375,4 +487,11 @@ static bool valid_whoelse(struct user *curr_user, struct user *exception)
         return false;
 
     return true;
+}
+
+/* Taking two users as void pointers, return 0 if they are equals, otherwise
+ * 1 is return (to inidicate they are different) */
+static int user_cmp(void *u1, void *u2)
+{
+    return strncmp(u1, u2, MAX_UNAME);
 }

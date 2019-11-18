@@ -40,6 +40,15 @@ enum task_id {
 
     client_broad_msg     = 15,  /* */
     server_broad_msg     = 16,  /* Server telling client msg is broadcasted */
+
+    client_block_user    = 17,  /* */
+    server_block_user    = 18,  /* Server replying to the client blocking */
+
+    client_dm_response   = 19,  /* */
+    server_dm_response   = 20,  /* Response to client sending direct message */
+
+    client_dm_msg        = 21,  /* */
+    server_dm_msg        = 22,  /* The contents of the message to send */
 };
 
 /* Return the task_id as a string */
@@ -122,6 +131,31 @@ struct sbm_payload {            /* task = server_broad_msg */
     char msg[MAX_MSG_LENGTH];   /* The message to broadcast */
 };
 
+struct cbu_payload {            /* task = client_block_user */
+    char dummy_;                /* ignored */
+};
+
+struct sbu_payload {            /* task = server_block_user */
+    enum status_code code;      /* response to the blocking */
+};
+
+struct cdmr_payload {           /* task = client_dm_response */
+    char dummy_;                /* ignored */
+};
+
+struct sdmr_payload {           /* task = server_dm_response */
+    enum status_code code;      /* Response to sending message */
+};
+
+struct cdmm_payload {           /* task = client_dm_msg */
+    char dummy_;                /* ignored */
+};
+
+struct sdmm_payload {           /* task = server_dm_msg */
+    char sender[MAX_UNAME];     /* Name of sender */
+    char msg[MAX_MSG_LENGTH];   /* Content of message */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return 0 on success, -errno is returned on error */
@@ -150,7 +184,7 @@ int recv_payload_cic(int sock, struct cic_payload *cic);
 int send_payload_sic(int sock, enum status_code code);
 int recv_payload_sic(int sock, struct sic_payload *sic);
 
-int send_payload_cua(int sock, const char uname[MAX_UNAME]);
+int send_payload_cua(int sock, const char username[MAX_UNAME]);
 int recv_payload_cua(int sock, struct cua_payload *cua);
 
 int send_payload_sua(int sock, enum status_code code);
@@ -162,7 +196,7 @@ int recv_payload_cpa(int sock, struct cpa_payload *cpa);
 int send_payload_spa(int sock, enum status_code code);
 int recv_payload_spa(int sock, struct spa_payload *spa);
 
-int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH]);
+int send_payload_ccmd(int sock, const char cmd[MAX_MSG_LENGTH]);
 int recv_payload_ccmd(int sock, struct ccmd_payload *ccmd);
 
 int send_payload_scmd(int sock, enum status_code code, uint64_t extra);
@@ -171,25 +205,43 @@ int recv_payload_scmd(int sock, struct scmd_payload *scmd);
 int send_payload_cw(int sock);
 int recv_payload_cw(int sock, struct cw_payload *cw);
 
-int send_payload_sw(int sock, char name[MAX_UNAME]);
+int send_payload_sw(int sock, const char name[MAX_UNAME]);
 int recv_payload_sw(int sock, struct sw_payload *sw);
 
 int send_payload_cws(int sock);
 int recv_payload_cws(int sock, struct cws_payload *cws);
 
-int send_payload_sws(int sock, char name[MAX_UNAME]);
+int send_payload_sws(int sock, const char name[MAX_UNAME]);
 int recv_payload_sws(int sock, struct sws_payload *sws);
 
 int send_payload_cbon(int sock);
 int recv_payload_cbon(int sock, struct cbon_payload *cbon);
 
-int send_payload_sbon(int sock, char username[MAX_UNAME]);
+int send_payload_sbon(int sock, const char username[MAX_UNAME]);
 int recv_payload_sbon(int sock, struct sbon_payload *sbon);
 
 int send_payload_cbm(int sock);
 int recv_payload_cbm(int sock, struct cbm_payload *cbm);
 
-int send_payload_sbm(int sock, char msg[MAX_MSG_LENGTH]);
+int send_payload_sbm(int sock, const char msg[MAX_MSG_LENGTH]);
 int recv_payload_sbm(int sock, struct sbm_payload *sbm);
+
+int send_payload_cbu(int sock);
+int recv_payload_cbu(int sock, struct cbu_payload *cbu);
+
+int send_payload_sbu(int sock, enum status_code code);
+int recv_payload_sbu(int sock, struct sbu_payload *sbu);
+
+int send_payload_cdmr(int sock);
+int recv_payload_cdmr(int sock, struct cdmr_payload *cdmr);
+
+int send_payload_sdmr(int sock, enum status_code code);
+int recv_payload_sdmr(int sock, struct sdmr_payload *sdmr);
+
+int send_payload_cdmm(int sock);
+int recv_payload_cdmm(int sock, struct cdmm_payload *cdmm);
+
+int send_payload_sdmm(int sock, const char sender[MAX_UNAME], const char msg[MAX_MSG_LENGTH]);
+int recv_payload_sdmm(int sock, struct sdmm_payload *sdmm);
 
 #endif /* HEADER_H */

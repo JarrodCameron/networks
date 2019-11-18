@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 #include "header.h"
+#include "status.h"
 #include "user.h"
 
 /* Defined in connection.c */
@@ -40,5 +41,9 @@ int conn_broad_log_on(struct list *conns, struct user *);
 /* Broadcast "msg" to all active connections, execpted for the "user" (since
  * it is pointless to send the same message to them self) */
 int conn_broad_msg(struct list *conns, struct user *, char msg[MAX_MSG_LENGTH]);
+
+/* Return the connection for the respective user. Return -1 on error, otherwise
+ * return 0. */
+int conn_get_by_user(struct list *conns, struct user *user, struct connection **ret);
 
 #endif /* CONNECTION_H */

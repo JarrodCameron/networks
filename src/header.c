@@ -112,259 +112,6 @@ const char *id_to_str(enum task_id id)
     }
 }
 
-#define MAKE_RECV(HEAD,TYPE)                                        \
-int recv_payload_##TYPE(int sock, struct TYPE ## _payload * TYPE)   \
-{                                                                   \
-    return recv_payload(                                            \
-        sock,                                                       \
-        HEAD,                                                       \
-        TYPE,                                                       \
-        sizeof(struct TYPE ## _payload)                             \
-    );                                                              \
-}
-
-MAKE_RECV(server_init_conn, sic)
-MAKE_RECV(client_init_conn, cic)
-MAKE_RECV(client_uname_auth, cua)
-MAKE_RECV(server_uname_auth, sua)
-MAKE_RECV(client_pword_auth, cpa)
-MAKE_RECV(server_pword_auth, spa)
-MAKE_RECV(client_command, ccmd)
-MAKE_RECV(server_command, scmd)
-MAKE_RECV(client_whoelse, cw)
-MAKE_RECV(server_whoelse, sw)
-MAKE_RECV(client_whoelse_since, cws)
-MAKE_RECV(server_whoelse_since, sws)
-MAKE_RECV(client_broad_logon, cbon)
-MAKE_RECV(server_broad_logon, sbon)
-MAKE_RECV(client_broad_msg, cbm)
-MAKE_RECV(server_broad_msg, sbm)
-
-int send_payload_cbm(int sock)
-{
-    struct cbm_payload cbm = {0};
-    cbm.dummy_ = '\0';
-
-    return send_payload(
-        sock,
-        client_broad_msg,
-        sizeof(cbm),
-        0, // ignored
-        (void **) &cbm
-    );
-}
-
-int send_payload_sbm(int sock, char msg[MAX_MSG_LENGTH])
-{
-    struct sbm_payload sbm = {0};
-    memcpy(sbm.msg, msg, MAX_MSG_LENGTH);
-
-    return send_payload(
-        sock,
-        server_broad_msg,
-        sizeof(sbm),
-        0, // ignored
-        (void **) &sbm
-    );
-}
-
-int send_payload_cbon(int sock)
-{
-    struct cbon_payload cbon = {0};
-    cbon.dummy_ = '\0';
-
-    return send_payload(
-        sock,
-        client_broad_logon,
-        sizeof(cbon),
-        0, // ignored
-        (void **) &cbon
-    );
-}
-
-int send_payload_cws(int sock)
-{
-    struct cws_payload cws = {0};
-    cws.dummy_ = '\0';
-
-    return send_payload(
-        sock,
-        client_whoelse_since,
-        sizeof(cws),
-        0, // ignored
-        (void **) &cws
-    );
-}
-
-int send_payload_sbon(int sock, char name[MAX_UNAME])
-{
-    struct sbon_payload sbon = {0};
-    memcpy(sbon.username, name, MAX_UNAME);
-
-    return send_payload(
-        sock,
-        server_broad_logon,
-        sizeof(sbon),
-        0, // ignored
-        (void **) &sbon
-    );
-}
-
-int send_payload_sws(int sock, char name[MAX_UNAME])
-{
-    struct sws_payload sws = {0};
-    memcpy(sws.username, name, MAX_UNAME);
-
-    return send_payload(
-        sock,
-        server_whoelse_since,
-        sizeof(sws),
-        0, // ignored
-        (void **) &sws
-    );
-
-}
-int send_payload_ccmd(int sock, char cmd[MAX_MSG_LENGTH])
-{
-    struct ccmd_payload ccmd = {0};
-    memcpy(ccmd.cmd, cmd, MAX_MSG_LENGTH);
-
-    return send_payload(
-        sock,
-        client_command,
-        sizeof(ccmd),
-        0, // ignored
-        (void **) &ccmd
-    );
-}
-
-int send_payload_scmd(int sock, enum status_code code, uint64_t extra)
-{
-    struct scmd_payload scmd = {0};
-    scmd.code = code;
-    scmd.extra = extra;
-
-    return send_payload(
-        sock,
-        server_command,
-        sizeof(scmd),
-        0, // ignored
-        (void **) &scmd
-    );
-}
-
-int send_payload_sic(int sock, enum status_code code)
-{
-    struct sic_payload sic = {0};
-    sic.code = code;
-
-    return send_payload(
-        sock,
-        server_init_conn,
-        sizeof(sic),
-        0, // ignored
-        (void **) &sic
-    );
-}
-
-int send_payload_cic(int sock, enum status_code code)
-{
-    struct cic_payload cic = {0};
-    cic.code = code;
-
-    return send_payload(
-        sock,
-        client_init_conn,
-        sizeof(cic),
-        0, // ignored
-        (void **) &cic
-    );
-}
-
-int send_payload_cua(int sock, const char uname[MAX_UNAME])
-{
-    struct cua_payload cua = {0};
-    memcpy(cua.username, uname, MAX_UNAME);
-
-    return send_payload(
-        sock,
-        client_uname_auth,
-        sizeof(cua),
-        0, // ignored
-        (void **) &cua
-    );
-}
-
-int send_payload_sua(int sock, enum status_code code)
-{
-    struct sua_payload sua = {0};
-    sua.code = code;
-
-    return send_payload(
-        sock,
-        server_uname_auth,
-        sizeof(sua),
-        0, // ignored
-        (void **) &sua
-    );
-}
-
-int send_payload_cpa(int sock, const char pword[MAX_PWORD])
-{
-    struct cpa_payload cpa = {0};
-    memcpy(cpa.password, pword, MAX_PWORD);
-
-    return send_payload(
-        sock,
-        client_pword_auth,
-        sizeof(cpa),
-        0, // ignored
-        (void **) &cpa
-    );
-}
-
-int send_payload_spa(int sock, enum status_code code)
-{
-    struct spa_payload spa = {0};
-    spa.code = code;
-
-    return send_payload(
-        sock,
-        server_pword_auth,
-        sizeof(spa),
-        0, // ignored
-        (void **) &spa
-    );
-}
-
-int send_payload_cw(int sock)
-{
-    struct cw_payload cw = {0};
-    cw.dummy_ = '\0';
-
-    return send_payload(
-        sock,
-        client_whoelse,
-        sizeof(cw),
-        0, // ignored
-        (void **) &cw
-    );
-}
-
-int send_payload_sw(int sock, char name[MAX_UNAME])
-{
-    struct sw_payload sw = {0};
-    memcpy(sw.username, name, MAX_UNAME);
-
-    return send_payload(
-        sock,
-        server_whoelse,
-        sizeof(sw),
-        0, // ignored
-        (void **) &sw
-    );
-}
-
 /* Helper function for all of the recv_* functions */
 static int recv_payload
 (
@@ -387,3 +134,140 @@ static int recv_payload
     return 0;
 }
 
+
+/* Simplify the receive process since they are all the same */
+#define MAKE_RECV(HEAD,TYPE)                                        \
+int recv_payload_ ## TYPE(int sock, struct TYPE ## _payload * TYPE) \
+{                                                                   \
+    return recv_payload(                                            \
+        sock,                                                       \
+        HEAD,                                                       \
+        TYPE,                                                       \
+        sizeof(struct TYPE ## _payload)                             \
+    );                                                              \
+}
+MAKE_RECV(server_init_conn, sic)
+MAKE_RECV(client_init_conn, cic)
+MAKE_RECV(client_uname_auth, cua)
+MAKE_RECV(server_uname_auth, sua)
+MAKE_RECV(client_pword_auth, cpa)
+MAKE_RECV(server_pword_auth, spa)
+MAKE_RECV(client_command, ccmd)
+MAKE_RECV(server_command, scmd)
+MAKE_RECV(client_whoelse, cw)
+MAKE_RECV(server_whoelse, sw)
+MAKE_RECV(client_whoelse_since, cws)
+MAKE_RECV(server_whoelse_since, sws)
+MAKE_RECV(client_broad_logon, cbon)
+MAKE_RECV(server_broad_logon, sbon)
+MAKE_RECV(client_broad_msg, cbm)
+MAKE_RECV(server_broad_msg, sbm)
+MAKE_RECV(client_block_user, cbu)
+MAKE_RECV(server_block_user, sbu)
+MAKE_RECV(client_dm_response, cdmr)
+MAKE_RECV(server_dm_response, sdmr)
+MAKE_RECV(client_dm_msg, cdmm)
+MAKE_RECV(server_dm_msg, sdmm)
+
+/* Simplify the send process for dummy stucts */
+#define MAKE_SEND_DUMMY(HEAD,TYPE)          \
+int send_payload_ ## TYPE (int sock)        \
+{                                           \
+    struct TYPE ## _payload TYPE = {0};     \
+    TYPE.dummy_ = '\0';                     \
+                                            \
+    return send_payload(                    \
+        sock,                               \
+        HEAD,                               \
+        sizeof(struct TYPE ## _payload),    \
+        0, /* ignored */                    \
+        (void **) & TYPE                    \
+    );                                      \
+}
+MAKE_SEND_DUMMY(client_broad_msg, cbm)
+MAKE_SEND_DUMMY(client_block_user, cbu)
+MAKE_SEND_DUMMY(client_broad_logon, cbon)
+MAKE_SEND_DUMMY(client_whoelse_since, cws)
+MAKE_SEND_DUMMY(client_whoelse, cw)
+MAKE_SEND_DUMMY(client_dm_response, cdmr)
+MAKE_SEND_DUMMY(client_dm_msg, cdmm)
+
+/* Simplify the send process for structs with code_status's */
+#define MAKE_SEND_CODE(HEAD,TYPE)                           \
+int send_payload_ ## TYPE (int sock, enum status_code code) \
+{                                                           \
+    struct TYPE ## _payload TYPE = {0};                     \
+    TYPE.code = code;                                       \
+                                                            \
+    return send_payload(                                    \
+        sock,                                               \
+        HEAD,                                               \
+        sizeof(struct TYPE ## _payload),                    \
+        0, /* ignored */                                    \
+        (void **) & TYPE                                    \
+    );                                                      \
+}
+MAKE_SEND_CODE(server_block_user, sbu)
+MAKE_SEND_CODE(server_init_conn, sic)
+MAKE_SEND_CODE(client_init_conn, cic)
+MAKE_SEND_CODE(server_uname_auth, sua)
+MAKE_SEND_CODE(server_pword_auth, spa)
+MAKE_SEND_CODE(server_dm_response, sdmr)
+
+/* Simplify the send process for structs with buffers */
+#define MAKE_SEND_BUFF(HEAD,TYPE,BUFF_NAME,BUFF_SIZE)           \
+int send_payload_ ## TYPE (int sock, const char BUFF_NAME[BUFF_SIZE]) \
+{                                                               \
+    struct TYPE ## _payload TYPE = {0};                         \
+    memcpy(TYPE . BUFF_NAME, BUFF_NAME, BUFF_SIZE);             \
+                                                                \
+    return send_payload(                                        \
+        sock,                                                   \
+        HEAD,                                                   \
+        sizeof(struct TYPE ## _payload),                        \
+        0, /* ignored */                                        \
+        (void **) & TYPE                                        \
+    );                                                          \
+}
+MAKE_SEND_BUFF(server_broad_msg, sbm, msg, MAX_MSG_LENGTH)
+MAKE_SEND_BUFF(server_broad_logon, sbon, username, MAX_UNAME)
+MAKE_SEND_BUFF(server_whoelse_since, sws, username, MAX_UNAME)
+MAKE_SEND_BUFF(client_command, ccmd, cmd, MAX_MSG_LENGTH)
+MAKE_SEND_BUFF(client_uname_auth, cua, username, MAX_UNAME)
+MAKE_SEND_BUFF(client_pword_auth, cpa, password, MAX_PWORD)
+MAKE_SEND_BUFF(server_whoelse, sw, username, MAX_UNAME)
+
+int send_payload_sdmm
+(
+    int sock,
+    const char sender[MAX_UNAME],
+    const char msg[MAX_MSG_LENGTH]
+)
+{
+    struct sdmm_payload sdmm = {0};
+    memcpy(sdmm.sender, sender, MAX_UNAME);
+    memcpy(sdmm.msg, msg, MAX_MSG_LENGTH);
+
+    return send_payload(
+        sock,
+        server_dm_msg,
+        sizeof(struct sdmm_payload),
+        0, /* ignored */
+        (void **) &sdmm
+    );
+}
+
+int send_payload_scmd(int sock, enum status_code code, uint64_t extra)
+{
+    struct scmd_payload scmd = {0};
+    scmd.code = code;
+    scmd.extra = extra;
+
+    return send_payload(
+        sock,
+        server_command,
+        sizeof(scmd),
+        0, // ignored
+        (void **) &scmd
+    );
+}

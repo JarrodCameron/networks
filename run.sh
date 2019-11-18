@@ -11,7 +11,7 @@ TIMEOUT="600"
 IP_ADDR="127.0.0.1"
 
 # Flags for valgrind
-VAL="valgrind --track-origins=yes --leak-check=full"
+VAL="valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all"
 
 # Exit if non-zero reutrn status
 set -e
@@ -30,12 +30,8 @@ function get_free_portnum () {
 port="$(get_free_portnum)"
 
 # Command to run in the tmux session
-server_cmd="./server $port $BLOCK_DURATION $TIMEOUT"
-client_cmd="./client $IP_ADDR $port"
-
-# Pre-defined input for the client's
-#client1_input="john C-m smith"
-#client2_input=""
+server_cmd="$VAL ./server $port $BLOCK_DURATION $TIMEOUT"
+client_cmd="sleep 1 && $VAL ./client $IP_ADDR $port"
 
 if [ "$1" = "comp" ]; then
     clear

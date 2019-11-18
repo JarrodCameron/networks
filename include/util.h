@@ -51,4 +51,13 @@ void tokens_free(struct tokens *t);
 /* Fill the "buffer" with null bytes for a length of "len" */
 void zero_out(void *buffer, unsigned int len);
 
+/* Create a buffer of size "len" and copy the contents of "buf" into it,
+ * essentially a copy of the "buf" */
+void *alloc_copy(const void *buf, unsigned int len);
+
+/* Instead of using memcpy to copy bytes strncpy is used. This allows the full
+ * buffer to be copied and zero'd out while only needing to copy the length
+ * of the string */
+void *safe_strndup(const void *buf, unsigned int len);
+
 #endif /* UTIL_H */

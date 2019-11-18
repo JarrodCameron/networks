@@ -7,7 +7,6 @@
 
 /* Defined in list.c */
 struct list;
-//struct iterator;
 
 /* Initialise the list, return NULL on error */
 struct list *list_init (void);
