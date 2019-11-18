@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <pthread.h>
@@ -31,6 +32,7 @@ struct connection {             /* Contains all information for
 static bool valid_log_on(struct connection *conn, struct user *user);
 static int send_broadcast_logon(struct connection *conn, struct user *new_user);
 static int deploy_logon_payload(int sock, struct user *user);
+static void deploy_logoff(void *item, void *arg);
 static int send_broadcast_msg(struct connection *, struct user *, char *);
 static bool valid_broad_msg(struct connection *conn, struct user *user);
 
@@ -157,6 +159,18 @@ int conn_broad_log_on(struct list *conns, struct user *user)
     return 0;
 }
 
+int conn_broad_log_off(struct list *conns, struct user *user)
+{
+    char *name = user_get_uname(user);
+    if (name == NULL)
+        return -1;
+
+    list_traverse(conns, deploy_logoff, name);
+
+    free(name);
+    return 0;
+}
+
 int conn_broad_msg
 (
     struct list *conns,
@@ -203,6 +217,36 @@ int conn_get_by_user(struct list *conns, struct user *user, struct connection **
     return 0;
 }
 
+/* Used to iterate over the list of connection and notify each one
+ * that the user has logged of */
+static void deploy_logoff(void *item, void *arg)
+{
+    struct connection *conn = item;
+    char *arg_name = arg;
+
+    lock_acquire(conn->lock);
+
+    char *name = user_get_uname(conn->user);
+    if (name == NULL) {
+        lock_release(conn->lock);
+        return;
+    }
+
+    if (strncmp(name, arg_name, MAX_UNAME) == 0) {
+        free(name);
+        lock_release(conn->lock);
+        return;
+    }
+    free(name);
+
+    if (send_payload_scmd(conn->sock, broad_logoff, 0 /* ignored */) < 0) {
+        lock_release(conn->lock);
+        return;
+    }
+
+    send_payload_sbof(conn->sock, arg_name);
+    lock_release(conn->lock);
+}
 
 /* Used to send the broadcast payload to a particular user to show that
  * the "msg" has been sent */

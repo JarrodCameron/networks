@@ -32,6 +32,7 @@
 struct {
     struct sockaddr_in sockaddr;
     int sock;
+    bool is_logged_out;
 } client = {0};
 
 /* Helper functions */
@@ -56,6 +57,8 @@ static const char *get_first_non_space(const char *line);
 static int deploy_command(char cmd[MAX_COMMAND]);
 static int dual_select(int *sock_ret, int *stdin_ret);
 static void run_client (void);
+static int cmd_logout(struct scmd_payload *scmd);
+static int handle_broad_logoff(void);
 
 /* The name of each command and the respective handle */
 struct {
@@ -69,7 +72,7 @@ struct {
     {.name = "whoelse",      .handle = cmd_whoelse},
     {.name = "block",        .handle = cmd_block},
     {.name = "unblock",      .handle = cmd_unblock},
-    {.name = "logout",       .handle = NULL},
+    {.name = "logout",       .handle = cmd_logout},
     {.name = "startprivate", .handle = NULL},
     {.name = "private",      .handle = NULL},
     {.name = "stopprivate",  .handle = NULL},
@@ -251,11 +254,26 @@ static int handle_scmd(struct scmd_payload *scmd)
         case client_msg:
             return handle_client_msg();
 
+        case broad_logoff:
+            return handle_broad_logoff();
+
         default:
             panic("Received unknown server command: \"%s\"(%d)\n",
                 code_to_str(scmd->code), scmd->code
             );
     }
+}
+
+/* When a different client logs off their name is broadcasted, this is the
+ * handler for when that happens */
+static int handle_broad_logoff(void)
+{
+    struct sbof_payload sbof = {0};
+    if (recv_payload_sbof(client.sock, &sbof) < 0)
+        return -1;
+
+    printf("User logged out: \"%s\"\n", sbof.name);
+    return 0;
 }
 
 /* This is called when the main loop receives a message from the socket
@@ -392,6 +410,13 @@ static int cmd_unblock(UNUSED struct scmd_payload *scmd)
             );
 
     }
+}
+
+/* This is called when the client wants to logout of their session */
+static int cmd_logout(UNUSED struct scmd_payload *scmd)
+{
+    client.is_logged_out = true;
+    return 0;
 }
 
 /* Used for when the client sends to whoelse command to the server */
@@ -585,6 +610,8 @@ static void run_client (void)
     if (attempt_login(client.sock) < 0)
         return;
 
+    client.is_logged_out = false;
+
     if (handle_backlog() < 0)
         return;
 
@@ -612,6 +639,9 @@ static void run_client (void)
                 return;
             }
         }
+
+        if (client.is_logged_out == true)
+            break;
     }
 
 }

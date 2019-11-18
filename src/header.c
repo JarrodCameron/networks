@@ -170,6 +170,8 @@ MAKE_RECV(client_dm_msg, cdmm)
 MAKE_RECV(server_dm_msg, sdmm)
 MAKE_RECV(client_unblock_user, cuu)
 MAKE_RECV(server_unblock_user, suu)
+MAKE_RECV(client_broad_logoff, cbof)
+MAKE_RECV(server_broad_logoff, sbof)
 
 /* Simplify the send process for dummy stucts */
 #define MAKE_SEND_DUMMY(HEAD,TYPE)          \
@@ -193,7 +195,8 @@ MAKE_SEND_DUMMY(client_whoelse_since, cws)
 MAKE_SEND_DUMMY(client_whoelse, cw)
 MAKE_SEND_DUMMY(client_dm_response, cdmr)
 MAKE_SEND_DUMMY(client_dm_msg, cdmm)
-MAKE_SEND_DUMMY(client_unblock_user, cuu);
+MAKE_SEND_DUMMY(client_unblock_user, cuu)
+MAKE_SEND_DUMMY(client_broad_logoff, cbof)
 
 /* Simplify the send process for structs with code_status's */
 #define MAKE_SEND_CODE(HEAD,TYPE)                           \
@@ -240,6 +243,7 @@ MAKE_SEND_BUFF(client_command, ccmd, cmd, MAX_MSG_LENGTH)
 MAKE_SEND_BUFF(client_uname_auth, cua, username, MAX_UNAME)
 MAKE_SEND_BUFF(client_pword_auth, cpa, password, MAX_PWORD)
 MAKE_SEND_BUFF(server_whoelse, sw, username, MAX_UNAME)
+MAKE_SEND_BUFF(server_broad_logoff, sbof, name, MAX_UNAME)
 
 int send_payload_sdmm
 (

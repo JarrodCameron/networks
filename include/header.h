@@ -52,6 +52,9 @@ enum task_id {
 
     client_unblock_user  = 23,  /* */
     server_unblock_user  = 24,  /* Response to unblocking a user */
+
+    client_broad_logoff  = 25,  /* */
+    server_broad_logoff  = 26,  /* Broad cast tthat a user has logged off */
 };
 
 /* Return the task_id as a string */
@@ -167,6 +170,14 @@ struct suu_payload {            /* task = server_unblock_user */
     enum status_code code;      /* Response the user being unblocked */
 };
 
+struct cbof_payload {           /* task = client_broad_logoff */
+    char dummy_;                /* ignored */
+};
+
+struct sbof_payload {           /* task = server_broad_logoff */
+    char name[MAX_UNAME];   /* Username of logged off user */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return 0 on success, -errno is returned on error */
@@ -260,5 +271,11 @@ int recv_payload_cuu(int suck, struct cuu_payload *cuu);
 
 int send_payload_suu(int sock, enum status_code code);
 int recv_payload_suu(int sock, struct suu_payload *suu);
+
+int send_payload_cbof(int sock);
+int recv_payload_cbof(int sock, struct cbof_payload *cbof);
+
+int send_payload_sbof(int sock, const char name[MAX_UNAME]);
+int recv_payload_sbof(int sock, struct sbof_payload *sbof);
 
 #endif /* HEADER_H */

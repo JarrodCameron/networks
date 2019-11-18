@@ -58,6 +58,7 @@ static struct {
 
 /* Helper functions */
 static int message_service(int sock, struct tokens *toks, struct user *user);
+static int logout_service(int sock, struct tokens *toks, struct user *user);
 static void usage (void);
 static int unblock_service(int sock, struct tokens *toks, struct user *user);
 static int init_users (void);
@@ -87,7 +88,7 @@ struct {
     {.name = "whoelse",      .service = whoelse_service},
     {.name = "block",        .service = block_service},
     {.name = "unblock",      .service = unblock_service},
-    {.name = "logout",       .service = NULL},
+    {.name = "logout",       .service = logout_service},
     {.name = "startprivate", .service = NULL},
     {.name = "private",      .service = NULL},
     {.name = "stopprivate",  .service = NULL},
@@ -160,6 +161,18 @@ static int set_timeout(int sock)
     assert(ret >= 0);
 
     return ret;
+}
+
+/* This is called when the user wants to log out */
+static int logout_service(int sock, UNUSED struct tokens *t, struct user *user)
+{
+    user_log_off(user);
+
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
+        return -1;
+
+    conn_broad_log_off(server.connections, user);
+    return 0;
 }
 
 /* The current user wants to block user toks->toks[1] */
@@ -475,6 +488,9 @@ static void client_command_handler(int sock, struct user *user)
         free (payload);
 
         logs("Received payload\n");
+
+        if (user_is_logged_on(user) == false)
+            return;
     }
 }
 

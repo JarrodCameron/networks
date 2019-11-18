@@ -27,16 +27,26 @@ function get_free_portnum () {
     printf $t
 }
 
+# If there is an already running session kill it
+function kill_open_session () {
+    if tmux ls | grep "^${SESSION}: "; then
+        tmux kill-session -t "$SESSION"
+    fi
+}
+
 port="$(get_free_portnum)"
 
 # Command to run in the tmux session
-server_cmd="$VAL ./server $port $BLOCK_DURATION $TIMEOUT"
-client_cmd="sleep 1 && $VAL ./client $IP_ADDR $port"
+server_cmd="./server $port $BLOCK_DURATION $TIMEOUT"
+client_cmd="./client $IP_ADDR $port"
 
 if [ "$1" = "comp" ]; then
     clear
     make
     exit 0
+elif [ "$1" = "val" ]; then
+    server_cmd="$VAL $server_cmd"
+    client_cmd="sleep 1 && $VAL $client_cmd"
 fi
 
 clear
@@ -66,15 +76,17 @@ echo
 # |            |            |
 # \-------------------------/
 
+kill_open_session &>/dev/null
+
 tmux new-session -d -s "$SESSION" -n "$WINNAME" # Create session, don't attach, set names
 tmux split-window -v -t "$SESSION"              # Create horizontal split
 tmux split-window -h -t 2              # Create horizontal split
 tmux split-window -h -t 1              # Create horizontal split
 tmux send-keys -t 1 "clear && echo '[SERVER]' && $server_cmd" C-m  # Command for top panel
-sleep 0.05
+sleep 0.02
 tmux send-keys -t 2 "clear && echo '[CLIENT 1]' && $client_cmd" C-m  # Command for bot panel
-sleep 0.05
+sleep 0.02
 tmux send-keys -t 3 "clear && echo '[CLIENT 2]' && $client_cmd" C-m  # Command for bot panel
-sleep 0.05
+sleep 0.02
 tmux send-keys -t 4 "clear && echo '[CLIENT 3]' && $client_cmd" C-m  # Command for bot panel
 tmux attach-session -t "$SESSION"               # Attach to session
