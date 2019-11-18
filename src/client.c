@@ -157,6 +157,42 @@ static NORETURN int handle_client_timeout(void)
     exit(1);
 }
 
+/* Return the number of items in the back log, if there is an error -1 is
+ * returned */
+static int get_backlog_len(void)
+{
+    struct scmd_payload scmd = {0};
+    if (recv_payload_scmd(client.sock, &scmd) < 0)
+        return -1;
+    assert(scmd.code == backlog_msg);
+    return scmd.extra;
+}
+
+/* Ask the server for a back log of messages if they have any */
+static int handle_backlog(void)
+{
+    int backlog_len = get_backlog_len();
+    if (backlog_len < 0)
+        return -1;
+    else if (backlog_len == 0)
+        return 0;
+
+    printf("You have received messages while you were offline!\n");
+
+    struct sdmm_payload sdmm = {0};
+
+    for (int i = 0; i < backlog_len; i++) {
+        if (recv_payload_sdmm(client.sock, &sdmm) < 0)
+            return -1;
+
+        printf("Message id: %d\n", i+1);
+        printf("  Sender: %s\n", sdmm.sender);
+        printf("  Message: %s\n", sdmm.msg);
+    }
+
+    return 0;
+}
+
 /* When a different client logs on their name is broadcasted, this is the
  * handler for when that happens */
 static int handle_broad_logon(void)
@@ -189,8 +225,8 @@ static int handle_client_msg(void)
         return -1;
 
     printf("Received direct message\n");
-    printf("Sender: %s\n", sdmm.sender);
-    printf("Message: %s\n", sdmm.msg);
+    printf("  Sender: %s\n", sdmm.sender);
+    printf("  Message: %s\n", sdmm.msg);
     return 0;
 }
 
@@ -514,6 +550,9 @@ static void run_client (void)
     int sock_ret, stdin_ret;
 
     if (attempt_login(client.sock) < 0)
+        return;
+
+    if (handle_backlog() < 0)
         return;
 
     while (1) {

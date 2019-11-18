@@ -395,6 +395,25 @@ static int service_query
     return ret;
 }
 
+static int handle_backlog(int sock, struct user *user)
+{
+    int backlog_len = user_get_backlog_len(user);
+    if (send_payload_scmd(sock, backlog_msg, backlog_len) < 0)
+        return -1;
+
+    struct sdmm_payload *sdmm = NULL;
+    for (int i = 0; i < backlog_len; i++) {
+        sdmm = user_pop_backlog(user);
+        assert(sdmm != NULL);
+        if (send_payload_sdmm(sock, sdmm->sender, sdmm->msg) < 0) {
+            free(sdmm);
+            return -1;
+        }
+        free(sdmm);
+    }
+    return 0;
+}
+
 /* This handles all commands sent from the client to the server for commands,
  * not for spawning connections */
 static void client_command_handler(int sock, struct user *user)
@@ -402,6 +421,9 @@ static void client_command_handler(int sock, struct user *user)
     struct header head;
     void *payload;
     int ret;
+
+    if (handle_backlog(sock, user) < 0)
+        return;
 
     while (1) {
         ret = get_payload(sock, &head, &payload);

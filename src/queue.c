@@ -135,3 +135,13 @@ bool queue_is_empty(struct queue *q)
     lock_release(q->lock);
     return ret;
 }
+
+int queue_len(struct queue *q)
+{
+    assert(q != NULL);
+    int ret;
+    lock_acquire(q->lock);
+    ret = q->len;
+    lock_release(q->lock);
+    return ret;
+}

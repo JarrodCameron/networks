@@ -15,6 +15,7 @@
 #include <time.h>
 
 #include "list.h"
+#include "queue.h"
 #include "server.h"
 #include "synch.h"
 #include "user.h"
@@ -29,7 +30,7 @@ struct user {
     time_t log_time;            /* Epoch time since user logged on */
     struct lock *lock;          /* Prevent race conditions */
     struct list *block_list;    /* The list of blocked users, all char*'s */
-    struct list *backlog;       /* Backlog of messages to send the client when
+    struct queue *backlog;      /* Backlog of messages to send the client when
                                  * they log in */
 };
 
@@ -70,7 +71,7 @@ struct user *user_init (const char uname[MAX_UNAME], const char pword[MAX_PWORD]
         return NULL;
     }
 
-    ret->backlog = list_init();
+    ret->backlog = queue_init();
     if (ret->backlog == NULL) {
         lock_free(ret->lock);
         list_free(ret->block_list, NULL);
@@ -148,7 +149,6 @@ void user_list_dump(struct list *users)
     {
         struct user *user = item;
         user_dump(user);
-        //printf("USER(%s, %s)\n", user->uname, user->pword);
         return;
     }
     list_traverse(users, foo, NULL);
@@ -355,11 +355,6 @@ enum status_code user_block
 
 bool user_on_blocklist (struct user *reciver, struct user *sender)
 {
-    check();
-    user_dump(reciver);
-    user_dump(sender);
-    check();
-
     struct user *user = list_get(reciver->block_list, user_cmp, sender->uname);
     return (user != NULL);
 }
@@ -370,10 +365,22 @@ int user_add_to_backlog(struct user *user, const char *name, const char *msg)
     if (sdmm == NULL)
         return -1;
 
-    if (list_add(user->backlog, sdmm) < 0)
+    if (queue_push(user->backlog, sdmm) < 0)
         return -1;
 
     return 0;
+}
+
+int user_get_backlog_len(struct user *user)
+{
+    assert(user != NULL);
+    return queue_len(user->backlog);
+}
+
+struct sdmm_payload *user_pop_backlog(struct user *user)
+{
+    assert(user != NULL);
+    return queue_pop(user->backlog);
 }
 
 /* Given the name (of the sender) and the message generate a sdmm_payload */

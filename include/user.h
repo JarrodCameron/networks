@@ -76,6 +76,13 @@ int user_add_to_backlog(struct user *user, const char *name, const char *msg);
 /* Return true/false if the two users are equals */
 bool user_equal(struct user *user1, struct user *user2);
 
+/* Return the number of items in the user's backlog */
+int user_get_backlog_len(struct user *);
+
+/* Pop a backloged item of the users backlog, if there are no items left then
+ * NULL is returned */
+struct sdmm_payload *user_pop_backlog(struct user *);
+
 // For debugging, print the list of users
 void user_list_dump(struct list *users);
 

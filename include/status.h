@@ -27,6 +27,7 @@ enum status_code {
     code_true    = 21,  /* The equivalent of "true" */
     code_false   = 22,  /* The equivalent of "false" */
     client_msg   = 23,  /* Message from the client */
+    backlog_msg  = 24,  /* These are messages for the backlog */
 };
 
 /* Return the value of the status_code as a human readable string */
