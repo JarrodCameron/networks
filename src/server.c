@@ -31,6 +31,7 @@
 #include "user.h"
 #include "util.h"
 
+// TODO Only backlog a message if the user is not blocked
 // TODO Tell user when broadcast was successful
 // TODO Don't broadcast to blocked off user
 // TODO Don't broadcast logging on to blocked off user
@@ -58,6 +59,7 @@ static struct {
 /* Helper functions */
 static int message_service(int sock, struct tokens *toks, struct user *user);
 static void usage (void);
+static int unblock_service(int sock, struct tokens *toks, struct user *user);
 static int init_users (void);
 static int init_args (const char *port, const char *dur, const char *timeout);
 static int init_server (void);
@@ -84,7 +86,7 @@ struct {
     {.name = "whoelsesince", .service = whoelsesince_service},
     {.name = "whoelse",      .service = whoelse_service},
     {.name = "block",        .service = block_service},
-    {.name = "unblock",      .service = NULL},
+    {.name = "unblock",      .service = unblock_service},
     {.name = "logout",       .service = NULL},
     {.name = "startprivate", .service = NULL},
     {.name = "private",      .service = NULL},
@@ -161,6 +163,30 @@ static int set_timeout(int sock)
 }
 
 /* The current user wants to block user toks->toks[1] */
+static int unblock_service(int sock, struct tokens *toks, struct user *user)
+{
+    assert(toks->toks[1] != NULL);
+
+    char *safe_name = safe_strndup(toks->toks[1], MAX_UNAME);
+    if (safe_name == NULL)
+        return -1;
+
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0) {
+        free(safe_name);
+        return -1;
+    }
+
+    enum status_code code = user_unblock(server.users, user, safe_name);
+    if (code == server_error) {
+        free(safe_name);
+        return -1;
+    }
+
+    free(safe_name);
+    return send_payload_suu(sock, code);
+}
+
+/* The current user wants to block user toks->toks[1] */
 static int block_service(int sock, struct tokens *toks, struct user *user)
 {
     assert(toks->toks[1] != NULL);
@@ -169,13 +195,18 @@ static int block_service(int sock, struct tokens *toks, struct user *user)
     if (safe_name == NULL)
         return -1;
 
-    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0) {
+        free(safe_name);
         return -1;
+    }
 
     enum status_code code = user_block(server.users, user, safe_name);
-    if (code == server_error)
+    if (code == server_error) {
+        free(safe_name);
         return -1;
+    }
 
+    free(safe_name);
     return send_payload_sbu(sock, code);
 }
 

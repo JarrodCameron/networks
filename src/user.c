@@ -39,7 +39,8 @@ struct user {
 static uint32_t user_count = 1;
 
 /* Helper functions */
-static int user_cmp(void *u1, void *u2);
+static int name_cmp(void *n1, void *n2);
+static void rm_name_from_list(struct list *list, const char *name);
 static bool already_blocked(struct list *block_list, const char *victim);
 static struct sdmm_payload *generate_sdmm(const char *name, const char *msg);
 static int add_to_block_list(struct list *block_list, const char *name);
@@ -329,7 +330,6 @@ user_whoelsesince_error:
     return NULL;
 }
 
-/* This is used when the user "blocker" wants to block the "victim" */
 enum status_code user_block
 (
     struct list *users,
@@ -353,9 +353,30 @@ enum status_code user_block
     return task_success;
 }
 
+enum status_code user_unblock
+(
+    struct list *users,
+    struct user *unblocker,
+    const char *victim_name
+)
+{
+    struct user *victim = user_get_by_name(users, victim_name);
+    if (victim == NULL)
+        return bad_uname;
+
+    if (user_uname_cmp(unblocker, victim_name) == 0)
+        return dup_error;
+
+    if (already_blocked(unblocker->block_list, victim_name) == false)
+        return user_unblocked;
+
+    rm_name_from_list(unblocker->block_list, victim_name);
+    return task_success;
+}
+
 bool user_on_blocklist (struct user *reciver, struct user *sender)
 {
-    struct user *user = list_get(reciver->block_list, user_cmp, sender->uname);
+    struct user *user = list_get(reciver->block_list, name_cmp, sender->uname);
     return (user != NULL);
 }
 
@@ -482,6 +503,14 @@ static int add_username_to_list(struct list *name_list, struct user *curr_user)
     return 0;
 }
 
+/* Remove name from list of names. The list is a list of char*'s, NOT users */
+static void rm_name_from_list(struct list *list, const char *name)
+{
+    char *old_name = list_rm(list, (void *) name, name_cmp);
+    assert(old_name != NULL);
+    free(old_name);
+}
+
 /* Return true if the user is valid for the whoelse command, otherwise
  * return false */
 static bool valid_whoelse(struct user *curr_user, struct user *exception)
@@ -498,7 +527,7 @@ static bool valid_whoelse(struct user *curr_user, struct user *exception)
 
 /* Taking two users as void pointers, return 0 if they are equals, otherwise
  * 1 is return (to inidicate they are different) */
-static int user_cmp(void *u1, void *u2)
+static int name_cmp(void *u1, void *u2)
 {
     return strncmp(u1, u2, MAX_UNAME);
 }

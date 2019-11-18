@@ -35,7 +35,8 @@ struct {
 } client = {0};
 
 /* Helper functions */
-static int cmd_message(struct scmd_payload *scmd);
+static int cmd_message(UNUSED struct scmd_payload *scmd);
+static int cmd_unblock(UNUSED struct scmd_payload *scmd);
 static void usage (void);
 static int init_args (const char *ip_addr, const char *port);
 static int conn_to_server (int sock);
@@ -67,7 +68,7 @@ struct {
     {.name = "whoelsesince", .handle = cmd_whoelsesince},
     {.name = "whoelse",      .handle = cmd_whoelse},
     {.name = "block",        .handle = cmd_block},
-    {.name = "unblock",      .handle = NULL},
+    {.name = "unblock",      .handle = cmd_unblock},
     {.name = "logout",       .handle = NULL},
     {.name = "startprivate", .handle = NULL},
     {.name = "private",      .handle = NULL},
@@ -356,6 +357,38 @@ static int cmd_block(UNUSED struct scmd_payload *scmd)
         default:
             panic("Unkown sbu_payload, received: \"%s\"(%d)\n",
                 code_to_str(sbu.code), sbu.code
+            );
+
+    }
+}
+
+/* Used for when this user wants to unblock another user */
+static int cmd_unblock(UNUSED struct scmd_payload *scmd)
+{
+    struct suu_payload suu = {0};
+    if (recv_payload_suu(client.sock, &suu) < 0)
+        return -1;
+
+    switch (suu.code) {
+        case user_unblocked:
+            printf("The user was not blocked!\n");
+            return 0;
+
+        case task_success:
+            printf("User successfully unblocked!\n");
+            return 0;
+
+        case bad_uname:
+            printf("User does not exist!\n");
+            return 0;
+
+        case dup_error:
+            printf("You can't unblock yourself\n");
+            return 0;
+
+        default:
+            panic("Unkown suu_payload, received: \"%s\"(%d)\n",
+                code_to_str(suu.code), suu.code
             );
 
     }

@@ -66,6 +66,14 @@ enum status_code user_block
     const char *victim
 );
 
+/* The is used when the user "unblocker" wants to unblock the "victim" */
+enum status_code user_unblock
+(
+    struct list *users,
+    struct user *unblocker,
+    const char *victim
+);
+
 /* Return true if the sender is on the reciver's block list, otherwise
  * false is returned */
 bool user_on_blocklist (struct user *reciver, struct user *sender);

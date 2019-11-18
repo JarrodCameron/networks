@@ -49,6 +49,9 @@ enum task_id {
 
     client_dm_msg        = 21,  /* */
     server_dm_msg        = 22,  /* The contents of the message to send */
+
+    client_unblock_user  = 23,  /* */
+    server_unblock_user  = 24,  /* Response to unblocking a user */
 };
 
 /* Return the task_id as a string */
@@ -156,6 +159,14 @@ struct sdmm_payload {           /* task = server_dm_msg */
     char msg[MAX_MSG_LENGTH];   /* Content of message */
 };
 
+struct cuu_payload {            /* task = client_unblock_user */
+    char dummy_;                /* ignored */
+};
+
+struct suu_payload {            /* task = server_unblock_user */
+    enum status_code code;      /* Response the user being unblocked */
+};
+
 /* Read the payload and header from the sender, return them by reference.
  * The header and payload will be malloc'd and must be free'd by the caller.
  * Return 0 on success, -errno is returned on error */
@@ -241,7 +252,13 @@ int recv_payload_sdmr(int sock, struct sdmr_payload *sdmr);
 int send_payload_cdmm(int sock);
 int recv_payload_cdmm(int sock, struct cdmm_payload *cdmm);
 
-int send_payload_sdmm(int sock, const char sender[MAX_UNAME], const char msg[MAX_MSG_LENGTH]);
+int send_payload_sdmm(int sock, const char sen[MAX_UNAME], const char msg[MAX_MSG_LENGTH]);
 int recv_payload_sdmm(int sock, struct sdmm_payload *sdmm);
+
+int send_payload_cuu(int sock);
+int recv_payload_cuu(int suck, struct cuu_payload *cuu);
+
+int send_payload_suu(int sock, enum status_code code);
+int recv_payload_suu(int sock, struct suu_payload *suu);
 
 #endif /* HEADER_H */

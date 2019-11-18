@@ -168,6 +168,8 @@ MAKE_RECV(client_dm_response, cdmr)
 MAKE_RECV(server_dm_response, sdmr)
 MAKE_RECV(client_dm_msg, cdmm)
 MAKE_RECV(server_dm_msg, sdmm)
+MAKE_RECV(client_unblock_user, cuu)
+MAKE_RECV(server_unblock_user, suu)
 
 /* Simplify the send process for dummy stucts */
 #define MAKE_SEND_DUMMY(HEAD,TYPE)          \
@@ -191,6 +193,7 @@ MAKE_SEND_DUMMY(client_whoelse_since, cws)
 MAKE_SEND_DUMMY(client_whoelse, cw)
 MAKE_SEND_DUMMY(client_dm_response, cdmr)
 MAKE_SEND_DUMMY(client_dm_msg, cdmm)
+MAKE_SEND_DUMMY(client_unblock_user, cuu);
 
 /* Simplify the send process for structs with code_status's */
 #define MAKE_SEND_CODE(HEAD,TYPE)                           \
@@ -213,6 +216,7 @@ MAKE_SEND_CODE(client_init_conn, cic)
 MAKE_SEND_CODE(server_uname_auth, sua)
 MAKE_SEND_CODE(server_pword_auth, spa)
 MAKE_SEND_CODE(server_dm_response, sdmr)
+MAKE_SEND_CODE(server_unblock_user, suu)
 
 /* Simplify the send process for structs with buffers */
 #define MAKE_SEND_BUFF(HEAD,TYPE,BUFF_NAME,BUFF_SIZE)           \
