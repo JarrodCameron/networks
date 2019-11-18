@@ -47,6 +47,10 @@ if [ "$1" = "comp" ]; then
 elif [ "$1" = "val" ]; then
     server_cmd="$VAL $server_cmd"
     client_cmd="sleep 1 && $VAL $client_cmd"
+elif [ "$1" = "stat" ]; then
+    printf "Number of lines: "
+    cat include/* src/* | wc -l
+    exit 0
 fi
 
 clear
