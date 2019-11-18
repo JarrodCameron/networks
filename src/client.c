@@ -470,9 +470,13 @@ static int cmd_whoelsesince(struct scmd_payload *scmd)
 }
 
 /* Used for when the client sends the "broadcast" command to the server */
-static int cmd_broadcast(UNUSED struct scmd_payload *scmd)
+static int cmd_broadcast(struct scmd_payload *scmd)
 {
-    // Client doesn't get response form server, therefore we pass
+    if (scmd->extra == 0) {
+        printf("Broadcast was successful!\n");
+    } else {
+        printf("Broadcast was blocked by %ld online users\n", scmd->extra);
+    }
     return 0;
 }
 

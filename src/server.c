@@ -31,9 +31,6 @@
 #include "user.h"
 #include "util.h"
 
-// TODO Tell user when broadcast was successful
-// TODO Don't broadcast to blocked off user
-// TODO Don't broadcast logging on to blocked off user
 // TODO On three bad attempts user should be blocked for block_duration
 
 /* For returning a service function pointer */
@@ -365,21 +362,22 @@ static enum status_code deploy_message
     return task_success;
 }
 
+time_t server_uptime(void)
+{
+    return time(NULL) - server.time_started;
+}
+
 /* Used to broadcast the message sent by the server to all other clients */
 static int broadcast_service(int sock, struct tokens *toks, struct user *user)
 {
-    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
+    int num_blocked = conn_get_num_blocked(server.connections, user);
+    if (send_payload_scmd(sock, task_ready, num_blocked) < 0)
         return -1;
 
     char *safe_msg = safe_strndup(toks->toks[1], MAX_MSG_LENGTH-1);
     int ret = conn_broad_msg(server.connections, user, safe_msg);
     free(safe_msg);
     return ret;
-}
-
-time_t server_uptime(void)
-{
-    return time(NULL) - server.time_started;
 }
 
 /* The client has given us a command which must be serviced, return a pointer

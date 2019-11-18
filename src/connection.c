@@ -13,6 +13,7 @@
 
 #include <pthread.h>
 
+#include "util.h"
 #include "connection.h"
 #include "header.h"
 #include "status.h"
@@ -29,13 +30,14 @@ struct connection {             /* Contains all information for
 };
 
 /* Helper functions */
-static bool valid_log_on(struct connection *conn, struct user *user);
+static int send_broad_logoff(int sock, struct user *user);
+static void num_blocked_iter(void *item, void *arg);
 static bool conn_user_blocked(struct connection *conn, struct user *user);
 static int send_broadcast_logon(struct connection *conn, struct user *new_user);
 static int deploy_logon_payload(int sock, struct user *user);
 static void deploy_logoff(void *item, void *arg);
 static int send_broadcast_msg(struct connection *, struct user *, char *);
-static bool valid_broad_msg(struct connection *conn, struct user *user);
+static bool valid_broadcast(struct connection *conn, struct user *user);
 
 struct connection *conn_init(void)
 {
@@ -148,9 +150,11 @@ int conn_broad_log_on(struct list *conns, struct user *user)
 
     while (iter_has_next(iter) == true) {
         struct connection *conn = iter_get(iter);
-        if (send_broadcast_logon(conn, user) < 0) {
-            iter_free(iter);
-            return -1;
+        if (conn_user_blocked(conn, user) == false) {
+            if (send_broadcast_logon(conn, user) < 0) {
+                iter_free(iter);
+                return -1;
+            }
         }
         iter_next(iter);
     }
@@ -166,7 +170,7 @@ int conn_broad_log_off(struct list *conns, struct user *user)
     if (name == NULL)
         return -1;
 
-    list_traverse(conns, deploy_logoff, name);
+    list_traverse(conns, deploy_logoff, user);
 
     free(name);
     return 0;
@@ -186,11 +190,9 @@ int conn_broad_msg
     while (iter_has_next(iter) == true) {
         struct connection *conn = iter_get(iter);
 
-        if (conn_user_blocked(conn, user) == false) {
-            if (send_broadcast_msg(conn, user, msg) < 0) {
-                iter_free(iter);
-                return -1;
-            }
+        if (send_broadcast_msg(conn, user, msg) < 0) {
+            iter_free(iter);
+            return -1;
         }
 
         iter_next(iter);
@@ -222,6 +224,31 @@ int conn_get_by_user(struct list *conns, struct user *user, struct connection **
     return 0;
 }
 
+int conn_get_num_blocked(struct list *conns, struct user *user)
+{
+    int ret = 0;
+    struct tuple tuple = {
+        .items[0] = &ret,
+        .items[1] = user,
+    };
+
+    list_traverse(conns, num_blocked_iter, &tuple);
+    return ret;
+}
+
+/* Return if the user was the block list of the conn */
+static void num_blocked_iter(void *item, void *arg)
+{
+    struct connection *conn = item;
+    struct tuple *tuple = arg;
+
+    int *ret_ptr = tuple->items[0];
+    struct user *user = tuple->items[1];
+
+    if (conn_user_blocked(conn, user) == true)
+        *ret_ptr += 1;
+}
+
 /* Return true if the user is blocked by the conn->user */
 static bool conn_user_blocked(struct connection *conn, struct user *user)
 {
@@ -237,30 +264,33 @@ static bool conn_user_blocked(struct connection *conn, struct user *user)
 static void deploy_logoff(void *item, void *arg)
 {
     struct connection *conn = item;
-    char *arg_name = arg;
-
+    struct user *user = arg;
     lock_acquire(conn->lock);
 
-    char *name = user_get_uname(conn->user);
-    if (name == NULL) {
+    if (valid_broadcast(conn, user) == false) {
         lock_release(conn->lock);
         return;
     }
 
-    if (strncmp(name, arg_name, MAX_UNAME) == 0) {
-        free(name);
-        lock_release(conn->lock);
-        return;
-    }
-    free(name);
-
-    if (send_payload_scmd(conn->sock, broad_logoff, 0 /* ignored */) < 0) {
-        lock_release(conn->lock);
-        return;
-    }
-
-    send_payload_sbof(conn->sock, arg_name);
+    send_broad_logoff(conn->sock, user);
     lock_release(conn->lock);
+}
+
+/* Simple send the log off message via the sock, return -1 on error, otherwise
+ * 0 is returned */
+static int send_broad_logoff(int sock, struct user *user)
+{
+    int ret;
+    if (send_payload_scmd(sock, broad_logoff, 0 /* ignored */) < 0)
+        return -1;
+
+    char *name = user_get_uname(user);
+    if (name == NULL)
+        return -1;
+
+    ret = send_payload_sbof(sock, name);
+    free(name);
+    return ret;
 }
 
 /* Used to send the broadcast payload to a particular user to show that
@@ -274,7 +304,7 @@ static int send_broadcast_msg
 {
     lock_acquire(conn->lock);
 
-    if (valid_broad_msg(conn, user) == false) {
+    if (valid_broadcast(conn, user) == false) {
         lock_release(conn->lock);
         return 0;
     }
@@ -293,8 +323,9 @@ static int send_broadcast_msg
     return 0;
 }
 
-/* Return true if the "conn" can be used to send the broadcast message */
-static bool valid_broad_msg(struct connection *conn, struct user *user)
+/* Return true if the "user" is valid enought to broadcast the the user on
+ * the "conn" side */
+static bool valid_broadcast(struct connection *conn, struct user *user)
 {
     if (user_is_logged_on(conn->user) == false)
         return false;
@@ -302,17 +333,7 @@ static bool valid_broad_msg(struct connection *conn, struct user *user)
     if (user_equal(conn->user, user) == true)
         return false;
 
-    return true;
-}
-
-/* Return true if this connection should be used to broadcast that the user
- * is online, otherwise return false */
-static bool valid_log_on(struct connection *conn, struct user *user)
-{
-    if (user_equal(conn->user, user) == true)
-        return false;
-
-    if (user_is_logged_on(conn->user) == false)
+    if (user_on_blocklist(conn->user, user) == true)
         return false;
 
     return true;
@@ -324,7 +345,7 @@ static int send_broadcast_logon(struct connection *conn, struct user *new_user)
 {
     lock_acquire(conn->lock);
 
-    if (valid_log_on(conn, new_user) == false) {
+    if (valid_broadcast(conn, new_user) == false) {
         lock_release(conn->lock);
         return 0;
     }

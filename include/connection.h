@@ -50,4 +50,7 @@ int conn_broad_msg(struct list *conns, struct user *, char msg[MAX_MSG_LENGTH]);
  * return 0. */
 int conn_get_by_user(struct list *conns, struct user *user, struct connection **ret);
 
+/* Return the number of users in the list of connections that block the user */
+int conn_get_num_blocked(struct list *conns, struct user *user);
+
 #endif /* CONNECTION_H */

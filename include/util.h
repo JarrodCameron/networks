@@ -24,6 +24,10 @@
         fflush(stdout);                                                     \
     } while (0)
 
+struct tuple {
+    void *items[2];
+};
+
 /* Shit has hit the fan, abort() mission */
 NORETURN void panic(const char *fmt, ...);
 
