@@ -30,6 +30,7 @@ struct connection {             /* Contains all information for
 
 /* Helper functions */
 static bool valid_log_on(struct connection *conn, struct user *user);
+static bool conn_user_blocked(struct connection *conn, struct user *user);
 static int send_broadcast_logon(struct connection *conn, struct user *new_user);
 static int deploy_logon_payload(int sock, struct user *user);
 static void deploy_logoff(void *item, void *arg);
@@ -184,10 +185,14 @@ int conn_broad_msg
 
     while (iter_has_next(iter) == true) {
         struct connection *conn = iter_get(iter);
-        if (send_broadcast_msg(conn, user, msg) < 0) {
-            iter_free(iter);
-            return -1;
+
+        if (conn_user_blocked(conn, user) == false) {
+            if (send_broadcast_msg(conn, user, msg) < 0) {
+                iter_free(iter);
+                return -1;
+            }
         }
+
         iter_next(iter);
     }
     iter_free(iter);
@@ -215,6 +220,16 @@ int conn_get_by_user(struct list *conns, struct user *user, struct connection **
     iter_free(iter);
     *ret = NULL;
     return 0;
+}
+
+/* Return true if the user is blocked by the conn->user */
+static bool conn_user_blocked(struct connection *conn, struct user *user)
+{
+    bool ret;
+    lock_acquire(conn->lock);
+    ret = user_on_blocklist(conn->user, user);
+    lock_release(conn->lock);
+    return ret;
 }
 
 /* Used to iterate over the list of connection and notify each one

@@ -31,7 +31,6 @@
 #include "user.h"
 #include "util.h"
 
-// TODO Only backlog a message if the user is not blocked
 // TODO Tell user when broadcast was successful
 // TODO Don't broadcast to blocked off user
 // TODO Don't broadcast logging on to blocked off user
@@ -369,15 +368,12 @@ static enum status_code deploy_message
 /* Used to broadcast the message sent by the server to all other clients */
 static int broadcast_service(int sock, struct tokens *toks, struct user *user)
 {
-    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0) {
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
         return -1;
-    }
 
-    char *msg = malloc(MAX_MSG_LENGTH);
-    zero_out(msg, MAX_MSG_LENGTH);
-    strncpy(msg, toks->toks[1], MAX_MSG_LENGTH - 1);
-    int ret = conn_broad_msg(server.connections, user, toks->toks[1]);
-    free(msg);
+    char *safe_msg = safe_strndup(toks->toks[1], MAX_MSG_LENGTH-1);
+    int ret = conn_broad_msg(server.connections, user, safe_msg);
+    free(safe_msg);
     return ret;
 }
 
