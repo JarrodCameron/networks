@@ -31,15 +31,13 @@
 #include "user.h"
 #include "util.h"
 
-// TODO On three bad attempts user should be blocked for block_duration
-
 /* For returning a service function pointer */
 typedef int (*service_handle)(int sock, struct tokens *, struct user *);
 
 static struct {
 
     /* User args */
-    uint32_t block_duration;    /* How long to block a user */
+    time_t block_duration;      /* How long to block a user */
     int port;                   /* Port to listen to connections */
     int timeout;                /* How long until a user gets kicked */
 
@@ -367,6 +365,11 @@ time_t server_uptime(void)
     return time(NULL) - server.time_started;
 }
 
+time_t server_block_dur(void)
+{
+    return server.block_duration;
+}
+
 /* Used to broadcast the message sent by the server to all other clients */
 static int broadcast_service(int sock, struct tokens *toks, struct user *user)
 {
@@ -548,7 +551,7 @@ static int init_args (const char *port, const char *dur, const char *timeout)
     if (server.timeout < 0)
         return -1;
 
-    sscanf(dur, "%d", &(server.block_duration));
+    sscanf(dur, "%ld", &(server.block_duration));
 
     return 0;
 }

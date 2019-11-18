@@ -7,4 +7,7 @@
  * been online */
 time_t server_uptime(void);
 
+/* Return the block duration as one of the arguments to the server */
+time_t server_block_dur(void);
+
 #endif /* SERVER_H */

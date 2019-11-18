@@ -25,7 +25,7 @@ struct user {
     char uname[MAX_UNAME];
     char pword[MAX_PWORD];
     uint32_t id;
-    bool blocked;
+    time_t block_time;          /* Time the user was blocked, 0=never blocked */
     bool logged_on;
     time_t log_time;            /* Epoch time since user logged on */
     struct lock *lock;          /* Prevent race conditions */
@@ -86,7 +86,7 @@ struct user *user_init (const char uname[MAX_UNAME], const char pword[MAX_PWORD]
     memcpy(ret->pword, pword, MAX_PWORD);
     ret->pword[MAX_PWORD-1] = '\0';
 
-    ret->blocked = false;
+    ret->block_time = 0;
     ret->logged_on = false;
 
     ret->id = user_count;
@@ -104,9 +104,14 @@ void user_free (struct user *user)
         return;
 
     struct lock *l = user->lock;
-    lock_acquire(user->lock);
+    lock_acquire(l);
+
+    list_free(user->block_list, free);
+    queue_free(user->backlog, free);
+
     free(user);
-    lock_release(user->lock);
+
+    lock_release(l);
     lock_free(l);
 }
 
@@ -161,7 +166,7 @@ void user_dump(struct user *user)
     printf("| username: %s\n", user->uname);
     printf("| password: %s\n", user->pword);
     printf("| id:       %d\n", user->id);
-    printf("| blocked:  %d\n", user->blocked);
+    //printf("| blocked:  %d\n", user->blocked);
     printf("| lock:     %p\n", user->lock);
     printf("\\----------\n");
     fflush(stdout);
@@ -170,7 +175,7 @@ void user_dump(struct user *user)
 void user_set_blocked(struct user *user)
 {
     lock_acquire(user->lock);
-    user->blocked = true;
+    user->block_time = time(NULL);
     lock_release(user->lock);
 }
 
@@ -193,7 +198,7 @@ enum status_code user_log_on(struct user *user)
     assert(user);
     lock_acquire(user->lock);
 
-    if (user->blocked == true) {
+    if (time(NULL) - user->block_time < server_block_dur()) {
         ret = user_blocked;
     } else if (user->logged_on == true) {
         ret = already_on;
@@ -230,11 +235,13 @@ bool user_is_logged_on(struct user *user)
 bool user_is_blocked(struct user *user)
 {
     bool ret;
+    time_t dur_blocked;
 
     assert (user != NULL);
 
     lock_acquire(user->lock);
-    ret = user->blocked;
+    dur_blocked = time(NULL) - user->block_time;
+    ret = (dur_blocked < server_block_dur());
     lock_release(user->lock);
 
     return ret;
