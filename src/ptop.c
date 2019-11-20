@@ -121,6 +121,12 @@ int ptop_handle_cmd(char cmd[MAX_MSG_LENGTH])
         return -1;
     }
 
+    if (toks == NULL) {
+        printf("Invalid command: \"%s\"\n", cmd);
+        free(safe_cmd);
+        return 0;
+    }
+
     int ret = deploy_ptop_cmd(safe_cmd, toks);
     tokens_free(toks);
     free(safe_cmd);
