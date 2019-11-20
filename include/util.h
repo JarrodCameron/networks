@@ -24,6 +24,7 @@
         fflush(stdout);                                                     \
     } while (0)
 
+/* Struct for holding variable amount of void*'s */
 struct tuple {
     void *items[2];
 };

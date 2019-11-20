@@ -27,12 +27,22 @@
 #include "clogin.h"
 #include "config.h"
 #include "header.h"
+#include "ptop.h"
 #include "util.h"
+#include "list.h"
 
 struct {
     struct sockaddr_in sockaddr;
-    int sock;
+    int sock;   /* For the server */
     bool is_logged_out;
+    struct list *ptops;
+
+    bool ptop_port_set;         /* If we have a port or not yet */
+    unsigned short ptop_port;   /* Port used for peer to peer comms */
+
+    int ptop_sock;  /* Peer to peer socket */
+
+    char my_name[MAX_UNAME];
 } client = {0};
 
 /* Helper functions */
@@ -50,18 +60,19 @@ static int stdin_read_handle(void);
 static bool is_help_cmd(char *cmd);
 static void cmd_help(void);
 static int cmd_whoelse(struct scmd_payload *scmd);
+static int set_ptop_sock(int server_sock);
 static int cmd_whoelsesince(struct scmd_payload *scmd);
 static int cmd_broadcast(UNUSED struct scmd_payload *scmd);
 static int cmd_block(struct scmd_payload *scmd);
 static const char *get_first_non_space(const char *line);
 static int deploy_command(char cmd[MAX_COMMAND]);
-static int dual_select(int *sock_ret, int *stdin_ret);
+static int dual_select(int *sock_ret, int *stdin_ret, int *ptop_ret);
 static void run_client (void);
 static int cmd_logout(struct scmd_payload *scmd);
 static int handle_broad_logoff(void);
 
 /* The name of each command and the respective handle */
-struct {
+static struct {
     const char *name;
     int (*handle)(struct scmd_payload *);
 } commands[] = {
@@ -88,14 +99,14 @@ static void usage (void)
 /* Initialise the arguments, return -1 on error */
 static int init_args (const char *ip_addr, const char *port)
 {
-    int dummy;
+    unsigned short dummy;
     struct sockaddr_in server_address = {0};
 
     // string to legin ipv4
     if (inet_pton(AF_INET, ip_addr, &(server_address.sin_addr)) != 1)
         return -1;
 
-    sscanf(port, "%d", &dummy);
+    sscanf(port, "%hu", &dummy);
     if (dummy < 1024)
         return -1;
     server_address.sin_port = htons(dummy);
@@ -103,6 +114,12 @@ static int init_args (const char *ip_addr, const char *port)
     server_address.sin_family = AF_INET;
 
     client.sockaddr = server_address;
+
+    client.ptop_port_set = false;
+
+    client.ptops = list_init();
+    if (client.ptops == NULL)
+        return -1;
 
     return 0;
 }
@@ -144,12 +161,19 @@ static int init_connection (void)
         return -1;
     }
 
+    if (set_ptop_sock(sock) < 0) {
+        close(sock);
+        return -1;
+    }
+
     if (conn_to_server(sock) < 0) {
         close (sock);
+        close (client.ptop_sock);
         return -1;
     }
 
     client.sock = sock;
+
     return 0;
 }
 
@@ -159,6 +183,32 @@ static NORETURN int handle_client_timeout(void)
     printf("You have timed out!\n");
     printf("Logging off now.\n");
     exit(1);
+}
+
+int client_get_server_sock(void)
+{
+    return client.sock;
+}
+
+int client_get_ptop_sock(void)
+{
+    return client.ptop_sock;
+}
+
+struct list *client_get_ptops(void)
+{
+    return client.ptops;
+}
+
+void client_set_uname(const char name[MAX_UNAME])
+{
+    zero_out(client.my_name, MAX_UNAME);
+    strncpy(client.my_name, name, MAX_UNAME);
+}
+
+char *client_get_uname(void)
+{
+    return safe_strndup(client.my_name, MAX_UNAME);
 }
 
 /* Return the number of items in the back log, if there is an error -1 is
@@ -280,16 +330,25 @@ static int handle_broad_logoff(void)
  * and needs to be handled */
 static int socket_read_handle(void)
 {
-    struct header head;
-    void *payload;
+    struct header head = {0};
+    void *payload = NULL;
     int ret = 0;
 
     ret = get_payload(client.sock, &head, &payload);
     if (ret < 0)
         return -1;
 
-    assert(head.task_id == server_command);
-    ret = handle_scmd(payload);
+    switch (head.task_id) {
+        case server_command:
+            ret = handle_scmd(payload);
+            break;
+
+        default:
+            panic("Received bad header: \"%s\"(%d)\n",
+                id_to_str(head.task_id),
+                head.task_id
+            );
+    }
 
     free(payload);
     return ret;
@@ -299,6 +358,7 @@ static int socket_read_handle(void)
  * and needs to be handled */
 static int stdin_read_handle(void)
 {
+    bool is_error = false;
     char cmd[MAX_COMMAND] = {0};
 
     int ret = read(0, cmd, MAX_COMMAND-1);
@@ -309,7 +369,14 @@ static int stdin_read_handle(void)
     if (cmd[ret-1] == '\n' || cmd[ret-1] == '\r')
         cmd[ret-1] = '\0';
 
-    if (deploy_command(cmd) < 0) {
+
+    if (ptop_is_cmd(cmd) == true) {
+        if (ptop_handle_cmd(cmd) < 0)
+            is_error = true;
+    } else if (deploy_command(cmd) < 0)
+        is_error = true;
+
+    if (is_error == true) {
         printf("Failed to send command: \"%s\"\n", cmd);
         return -1;
     }
@@ -410,6 +477,43 @@ static int cmd_unblock(UNUSED struct scmd_payload *scmd)
             );
 
     }
+}
+
+/* Set up the peer to peer socket after the server socket is done */
+static int set_ptop_sock(int server_sock)
+{
+    int ret, ptop_sock;
+    struct sockaddr_in temp_addr = {0};
+    socklen_t temp_len = sizeof(temp_addr);
+
+    ptop_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (ptop_sock < 0)
+        return -1;
+
+    ret = getsockname(server_sock, (struct sockaddr *) &temp_addr, &temp_len);
+    if (ret < 0) {
+        close(ptop_sock);
+        return -1;
+    }
+
+    temp_addr.sin_family = AF_INET;
+    temp_addr.sin_port = htons(temp_addr.sin_port);
+    temp_addr.sin_addr = temp_addr.sin_addr;
+
+    ret = bind(ptop_sock, (struct sockaddr *) &temp_addr, temp_len);
+    if (ret < 0) {
+        close(ptop_sock);
+        return -1;
+    }
+
+    ret = listen(ptop_sock, CLIENT_BACKLOG);
+    if (ret < 0) {
+        close(ptop_sock);
+        return -1;
+    }
+
+    client.ptop_sock = ptop_sock;
+    return 0;
 }
 
 /* This is called when the client wants to logout of their session */
@@ -586,14 +690,16 @@ static int deploy_command(char cmd[MAX_COMMAND])
 /* Use the "select" system call for stdin and the server socket. If the
  * fd is selected then it is set to 1, otherwise it is set to zero. Return
  * -1 on error */
-static int dual_select(int *sock_ret, int *stdin_ret)
+static int dual_select(int *sock_ret, int *stdin_ret, int *ptop_ret)
 {
     fd_set read_set;
     FD_ZERO(&read_set);
     FD_SET(0, &read_set); /* stdin fd */
     FD_SET(client.sock, &read_set);
+    FD_SET(client.ptop_sock, &read_set);
 
-    int nfds = MAX(0 /* stdin fd */, client.sock) + 1;
+    int nfds = MAX(0 /* stdin fd */, client.sock);
+    nfds = MAX(nfds, client.ptop_sock) + 1;
 
     int ret = select(nfds, &read_set, NULL, NULL, NULL);
     if (ret < 0) {
@@ -602,6 +708,7 @@ static int dual_select(int *sock_ret, int *stdin_ret)
 
     *sock_ret = !!FD_ISSET(client.sock, &read_set);
     *stdin_ret = !!FD_ISSET(0 /* stdin fd */, &read_set);
+    *ptop_ret = !!FD_ISSET(client.ptop_sock, &read_set);
     return 0;
 }
 
@@ -609,7 +716,7 @@ static int dual_select(int *sock_ret, int *stdin_ret)
  * This is logs the client in to the server */
 static void run_client (void)
 {
-    int sock_ret, stdin_ret;
+    int sock_ret, stdin_ret, ptop_ret;
 
     if (attempt_login(client.sock) < 0)
         return;
@@ -624,22 +731,30 @@ static void run_client (void)
         printf("> ");
         fflush(stdout);
 
-        sock_ret = stdin_ret = -1;
-        if (dual_select(&sock_ret, &stdin_ret) < 0) {
+        sock_ret = stdin_ret = ptop_ret = 0;
+        if (dual_select(&sock_ret, &stdin_ret, &ptop_ret) < 0) {
             printf("Failed to receive input from server or client\n");
             return;
         }
 
-        if (sock_ret == 1) {
+        if (sock_ret) {
             if (socket_read_handle() < 0) {
                 printf("Failed to handle socket payload\n");
                 return;
             }
         }
 
-        if (stdin_ret == 1) {
+        if (stdin_ret) {
             if (stdin_read_handle() < 0) {
                 printf("Failed to handle stdin payload\n");
+                return;
+            }
+        }
+
+        if (ptop_ret) {
+            if (ptop_accept() < 0) {
+                 // TODO Scan for the sockets and call ptop_handle_payload
+                printf("Failed peer to peer communication\n");
                 return;
             }
         }

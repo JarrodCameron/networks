@@ -27,6 +27,9 @@ struct connection {             /* Contains all information for
     pthread_t *thread;          /* The thread handling this connection */
     struct user *user;          /* The user on the other side */
     struct lock *lock;          /* Just in case... shouldn't need it */
+
+    struct in_addr addr;        /* The IPv4 address */
+    unsigned int port;          /* Port num for this connection */
 };
 
 /* Helper functions */
@@ -112,6 +115,42 @@ void conn_set_user(struct connection *conn, struct user *user)
     assert(conn->user == NULL);
     conn->user = user;
     lock_release(conn->lock);
+}
+
+void conn_set_in_addr(struct connection *conn, struct in_addr in)
+{
+    assert(conn != NULL);
+    lock_acquire(conn->lock);
+    conn->addr = in;
+    lock_release(conn->lock);
+}
+
+unsigned short conn_get_port(struct connection *conn)
+{
+    unsigned short port;
+    assert(conn);
+    lock_acquire(conn->lock);
+    port = conn->port;
+    lock_release(conn->lock);
+    return port;
+}
+
+void conn_set_port(struct connection *conn, unsigned short port)
+{
+    assert(conn);
+    lock_acquire(conn->lock);
+    conn->port = port;
+    lock_release(conn->lock);
+}
+
+struct in_addr conn_get_in_addr(struct connection *conn)
+{
+    struct in_addr addr;
+    assert(conn);
+    lock_acquire(conn->lock);
+    addr = conn->addr;
+    lock_release(conn->lock);
+    return addr;
 }
 
 pthread_t *conn_get_thread(struct connection *conn)

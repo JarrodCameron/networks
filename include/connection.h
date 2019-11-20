@@ -1,6 +1,17 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include <assert.h>
+#include <netdb.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <pthread.h>
 
 #include "header.h"
@@ -24,6 +35,18 @@ void conn_set_sock(struct connection *, int sock);
 
 /* Set the user for the connection, can only be done once */
 void conn_set_user(struct connection *, struct user *);
+
+/* Set the in_addr for this connection for later use */
+void conn_set_in_addr(struct connection *, struct in_addr);
+
+/* Return the sockaddr/IPv4 address for this connection */
+struct in_addr conn_get_in_addr(struct connection *);
+
+/* Return the port number (NOT SOCKET) used for this connection */
+unsigned short conn_get_port(struct connection *);
+
+/* Set the port number for this connection */
+void conn_set_port(struct connection *, unsigned short port);
 
 /* Return a reference to the thread for this connection */
 pthread_t *conn_get_thread(struct connection *);

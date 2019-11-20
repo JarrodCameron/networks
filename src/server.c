@@ -5,6 +5,8 @@
  *                                         *
  *******************************************/
 
+// TODO Close connection when blocking someone
+
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -58,6 +60,9 @@ static int unblock_service(int sock, struct tokens *toks, struct user *user);
 static int init_users (void);
 static int init_args (const char *port, const char *dur, const char *timeout);
 static int init_server (void);
+static int deploy_full_ssp(int sock, struct connection *conn);
+static int send_default_ssp(int sock, enum status_code code);
+static int startprivate_service(int sock, struct tokens *toks, struct user *);
 static void free_users (void);
 static int block_service(int sock, struct tokens *toks, struct user *user);
 static int dispatch_event (struct connection *conn);
@@ -83,9 +88,7 @@ struct {
     {.name = "block",        .service = block_service},
     {.name = "unblock",      .service = unblock_service},
     {.name = "logout",       .service = logout_service},
-    {.name = "startprivate", .service = NULL},
-    {.name = "private",      .service = NULL},
-    {.name = "stopprivate",  .service = NULL},
+    {.name = "startprivate", .service = startprivate_service},
 };
 
 /* Print usage and exit */
@@ -167,6 +170,52 @@ static int logout_service(int sock, UNUSED struct tokens *t, struct user *user)
 
     conn_broad_log_off(server.connections, user);
     return 0;
+}
+
+/* This is called when the user wants to start a private connections and
+ * needs details about the respective user. This inclused port number
+ * and IPv4 address */
+static int startprivate_service(int sock, struct tokens *toks, struct user *user)
+{
+    if (send_payload_scmd(sock, task_ready, 0 /* ignored */) < 0)
+        return -1;
+
+    struct user *receiver = user_get_by_name(server.users, toks->toks[1]);
+    if (receiver == NULL)
+        return send_default_ssp(sock, bad_uname);
+
+    if (user_equal(receiver, user) == true)
+        return send_default_ssp(sock, dup_error);
+
+    if (user_on_blocklist(receiver, user) == true)
+        return send_default_ssp(sock, user_blocked);
+
+    struct connection *conn = NULL;
+    if (conn_get_by_user(server.connections, receiver, &conn) < 0)
+        return -1;
+
+    if (conn == NULL)
+        return send_default_ssp(sock, user_offline);
+
+    return deploy_full_ssp(sock, conn);
+}
+
+/* Deploy the full ssp payload to the receiver specified by the sock,
+ * not the receiver specified by the conn */
+static int deploy_full_ssp(int sock, struct connection *conn)
+{
+    unsigned short port = conn_get_port(conn);
+    struct in_addr addr = conn_get_in_addr(conn);
+    return send_payload_ssp(sock, task_success, port, addr);
+}
+
+/* Return a ssp_payload where the code is specified but the port and addr
+ * fields are filled with trash */
+static int send_default_ssp(int sock, enum status_code code)
+{
+    int port = 0;
+    struct in_addr addr = {0};
+    return send_payload_ssp(sock, code, port, addr);
 }
 
 /* The current user wants to block user toks->toks[1] */
@@ -654,6 +703,8 @@ static void run_server (void)
             continue;
         }
         conn_set_sock(conn, sock);
+        conn_set_port(conn, client_addr.sin_port);
+        conn_set_in_addr(conn, client_addr.sin_addr);
 
         struct cic_payload cic = {0};
         if (recv_payload_cic(sock, &cic) < 0) {

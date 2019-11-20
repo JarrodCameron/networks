@@ -13,6 +13,10 @@
  * connections. If the server is too slow increase this number */
 #define SERVER_BACKLOG (20)
 
+/* Size of the backlog for the client. This is how many peers can be in
+ * the backlog for peer to peer connections */
+#define CLIENT_BACKLOG (20)
+
 /* Where to store the list of credentials */
 #define CRED_LIST "credentials.txt"
 

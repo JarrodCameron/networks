@@ -4,7 +4,16 @@
 /* This describes the header of the packets that will be sent.
  */
 
+#include <assert.h>
+#include <netdb.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "status.h"
@@ -55,6 +64,13 @@ enum task_id {
 
     client_broad_logoff  = 25,  /* */
     server_broad_logoff  = 26,  /* Broad cast tthat a user has logged off */
+
+    client_start_private = 27,  /* */
+    server_start_private = 28,  /* The info to start private comms */
+
+    ptop_command         = 29,  /* Peer to peer command is coming up */
+    ptop_init_conn       = 30,  /* Contains information about peer's conn */
+    ptop_handshake       = 31,  /* Used to synch (mainly the usernames) */
 };
 
 /* Return the task_id as a string */
@@ -175,7 +191,30 @@ struct cbof_payload {           /* task = client_broad_logoff */
 };
 
 struct sbof_payload {           /* task = server_broad_logoff */
-    char name[MAX_UNAME];   /* Username of logged off user */
+    char name[MAX_UNAME];       /* Username of logged off user */
+};
+
+struct csp_payload {            /* task = client_start_private */
+    char dummy_;                /* ignored */
+};
+
+struct ssp_payload {            /* task = server_start_private */
+    enum status_code code;      /* Code for the response */
+    unsigned short port;        /* Port number of client */
+    struct in_addr addr;        /* IPv4 address of client */
+};
+
+struct pcmd_payload {           /* task = ptop_command */
+    char cmd[MAX_MSG_LENGTH];   /* Peer to peer command */
+};
+
+struct pic_payload {            /* task = ptop_init_conn */
+    unsigned short port;        /* Port number of sender */
+    struct in_addr addr;        /* IPv4 of connecting client */
+};
+
+struct phs_payload {            /* task = ptop_handshake */
+    char name[MAX_UNAME];       /* The name of the user doing to synch'ing */
 };
 
 /* Read the payload and header from the sender, return them by reference.
@@ -277,5 +316,20 @@ int recv_payload_cbof(int sock, struct cbof_payload *cbof);
 
 int send_payload_sbof(int sock, const char name[MAX_UNAME]);
 int recv_payload_sbof(int sock, struct sbof_payload *sbof);
+
+int send_payload_csp(int sock);
+int recv_payload_csp(int sock, struct csp_payload *csp);
+
+int send_payload_ssp(int sock, enum status_code, unsigned short port, struct in_addr);
+int recv_payload_ssp(int sock, struct ssp_payload *ssp);
+
+int send_payload_pcmd(int sock, const char cmd[MAX_MSG_LENGTH]);
+int recv_payload_pcmd(int sock, struct pcmd_payload *pcmd);
+
+int send_payload_pic(int sock, unsigned short port, struct in_addr addr);
+int recv_payload_pic(int sock, struct pic_payload *pic);
+
+int send_payload_phs(int sock, const char name[MAX_UNAME]);
+int recv_payload_phs(int sock, struct phs_payload *phs);
 
 #endif /* HEADER_H */

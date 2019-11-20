@@ -108,6 +108,22 @@ const char *id_to_str(enum task_id id)
         case server_whoelse_since: return "server_whoelse_since";
         case client_broad_logon:   return "client_broad_logon";
         case server_broad_logon:   return "server_broad_logon";
+        case client_broad_msg:     return "client_broad_msg";
+        case server_broad_msg:     return "server_broad_msg";
+        case client_block_user:    return "client_block_user";
+        case server_block_user:    return "server_block_user";
+        case client_dm_response:   return "client_dm_response";
+        case server_dm_response:   return "server_dm_response";
+        case client_dm_msg:        return "client_dm_msg";
+        case server_dm_msg:        return "server_dm_msg";
+        case client_unblock_user:  return "client_unblock_user";
+        case server_unblock_user:  return "server_unblock_user";
+        case client_broad_logoff:  return "client_broad_logoff";
+        case server_broad_logoff:  return "server_broad_logoff";
+        case client_start_private: return "client_start_private";
+        case server_start_private: return "server_start_private";
+        case ptop_command:         return "ptop_command";
+        case ptop_init_conn:       return "ptop_init_conn";
         default:                   return "{Invalid task_id}";
     }
 }
@@ -172,6 +188,11 @@ MAKE_RECV(client_unblock_user, cuu)
 MAKE_RECV(server_unblock_user, suu)
 MAKE_RECV(client_broad_logoff, cbof)
 MAKE_RECV(server_broad_logoff, sbof)
+MAKE_RECV(client_start_private, csp)
+MAKE_RECV(server_start_private, ssp)
+MAKE_RECV(ptop_command, pcmd)
+MAKE_RECV(ptop_init_conn, pic)
+MAKE_RECV(ptop_handshake, phs)
 
 /* Simplify the send process for dummy stucts */
 #define MAKE_SEND_DUMMY(HEAD,TYPE)          \
@@ -197,6 +218,7 @@ MAKE_SEND_DUMMY(client_dm_response, cdmr)
 MAKE_SEND_DUMMY(client_dm_msg, cdmm)
 MAKE_SEND_DUMMY(client_unblock_user, cuu)
 MAKE_SEND_DUMMY(client_broad_logoff, cbof)
+MAKE_SEND_DUMMY(client_start_private, csp)
 
 /* Simplify the send process for structs with code_status's */
 #define MAKE_SEND_CODE(HEAD,TYPE)                           \
@@ -244,6 +266,8 @@ MAKE_SEND_BUFF(client_uname_auth, cua, username, MAX_UNAME)
 MAKE_SEND_BUFF(client_pword_auth, cpa, password, MAX_PWORD)
 MAKE_SEND_BUFF(server_whoelse, sw, username, MAX_UNAME)
 MAKE_SEND_BUFF(server_broad_logoff, sbof, name, MAX_UNAME)
+MAKE_SEND_BUFF(ptop_command, pcmd, cmd, MAX_MSG_LENGTH)
+MAKE_SEND_BUFF(ptop_handshake, phs, name, MAX_UNAME)
 
 int send_payload_sdmm
 (
@@ -278,4 +302,43 @@ int send_payload_scmd(int sock, enum status_code code, uint64_t extra)
         0, // ignored
         (void **) &scmd
     );
+}
+
+int send_payload_ssp
+(
+    int sock,
+    enum status_code code,
+    unsigned short port,
+    struct in_addr addr
+)
+{
+    struct ssp_payload ssp = {0};
+    ssp.port = port;
+    ssp.addr = addr;
+    ssp.code = code;
+
+    return send_payload(
+        sock,
+        server_start_private,
+        sizeof(ssp),
+        0, // ignored
+        (void **) &ssp
+    );
+}
+
+int send_pic_payload(int sock, unsigned short port, struct in_addr addr)
+{
+    struct pic_payload pic = {0};
+    pic.port = port;
+    pic.addr = addr;
+
+    return send_payload(
+        sock,
+        ptop_init_conn,
+        sizeof(pic),
+        0, // ignored
+        (void **) &pic
+    );
+
+    return 0;
 }

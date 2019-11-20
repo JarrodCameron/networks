@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "banner.h"
+#include "client.h"
 #include "clogin.h"
 #include "header.h"
 #include "util.h"
@@ -112,6 +113,7 @@ static enum status_code attempt_uname(int sock)
         get_uname(uname);
         code = deploy_uname(sock, uname);
     }
+    client_set_uname(uname);
     return code;
 }
 

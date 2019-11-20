@@ -29,6 +29,7 @@ enum status_code {
     client_msg     = 23,  /* Message from the client */
     backlog_msg    = 24,  /* These are messages for the backlog */
     user_unblocked = 25,  /* The user is unblocked */
+    user_offline   = 26,  /* The user is offline */
 };
 
 /* Return the value of the status_code as a human readable string */
