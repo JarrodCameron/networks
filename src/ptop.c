@@ -30,6 +30,8 @@ static int query_ptop(char *cmd, struct tokens *toks, struct ptop **ptop);
 static int add_client_ptop(struct ptop *ptop);
 static int init_ptop_conn(struct ptop *ptop);
 static void remove_ptop(struct ptop *ptop);
+static void ptop_stop(void *item);
+static int sock_stopprivate(struct ptop *ptop, struct tokens *toks);
 static int sock_private(struct ptop *ptop, struct tokens *toks);
 static int get_by_fd_cmp(void *item, void *arg);
 static struct ptop *ptop_get_by_fd(int fd);
@@ -88,7 +90,7 @@ static struct {
     {
         .name = "stopprivate",
         .cmd_handle = cmd_stopprivate,
-        .sock_handle = NULL,
+        .sock_handle = sock_stopprivate
     },
 };
 
@@ -179,6 +181,26 @@ void ptop_fill_fd_set(fd_set *read_set)
     list_traverse(ptop_list, fill_fd_set_iter, read_set);
 }
 
+int ptop_stop_all(void)
+{
+    struct list *ptop_list = client_get_ptops();
+    list_free(ptop_list, ptop_stop);
+    return 0;
+}
+
+/* Remove the ptop by using the "stopprivate" signal */
+static void ptop_stop(void *item)
+{
+    struct ptop *ptop = item;
+
+    char buff[MAX_MSG_LENGTH] = {0};
+    strcpy(buff, "stopprivate dummy_name");
+
+    send_payload_pcmd(ptop->sock, buff);
+    close(ptop->sock);
+    ptop_free(ptop);
+}
+
 /* Handle the incoming payload for this connection */
 static int ptop_handle_incoming_payload(struct ptop *ptop)
 {
@@ -192,7 +214,7 @@ static int ptop_handle_incoming_payload(struct ptop *ptop)
         return -1;
 
     if (toks == NULL)
-        return 0; // TODO Message for bad argument if needed?
+        return 0;
 
     return deploy_sock_payload(ptop, toks);
 }
@@ -271,6 +293,19 @@ static int sock_private(struct ptop *ptop, struct tokens *toks)
     printf("Received private message\n");
     printf("  Sender: %s\n", ptop->peer_name);
     printf("  Message: %s\n", toks->toks[2]);
+    return 0;
+}
+
+/* This is used to handle when another client wants to cancle the private
+ * connection with this client */
+static int sock_stopprivate(struct ptop *ptop, UNUSED struct tokens *toks)
+{
+    printf("Private connection closed with: \"%s\"\n", ptop->peer_name);
+
+    struct list *ptop_list = client_get_ptops();
+    list_rm(ptop_list, ptop, ptop_cmp);
+    close(ptop->sock);
+    ptop_free(ptop);
     return 0;
 }
 
@@ -387,11 +422,26 @@ static int ptop_get_by_name(const char *name, struct ptop **ptop)
 /* This is used to handle the "stopprivate" command by the client */
 static int cmd_stopprivate(char *safe_cmd, struct tokens *toks)
 {
-    panic("The cmd_stopprivate command\n");
-    // todo: The cmd_stopprivate command
-    (void) toks;
-    (void) safe_cmd;
-    return -1;
+    struct ptop *ptop = NULL;
+    if (ptop_get_by_name(toks->toks[1], &ptop) < 0)
+        return -1;
+
+    if (ptop == NULL) {
+        printf("No private connection to user: \"%s\"\n", toks->toks[1]);
+        return 0;
+    }
+
+    if (send_payload_pcmd(ptop->sock, safe_cmd) < 0)
+        return -1;
+
+    struct list *ptop_list = client_get_ptops();
+    list_rm(ptop_list, ptop, ptop_cmp);
+    close(ptop->sock);
+    ptop_free(ptop);
+
+    printf("Connection successfully closed\n");
+
+    return 0;
 }
 
 /* If the client is already in a session with this user then true is returned,

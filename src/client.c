@@ -85,9 +85,6 @@ static struct {
     {.name = "block",        .handle = cmd_block},
     {.name = "unblock",      .handle = cmd_unblock},
     {.name = "logout",       .handle = cmd_logout},
-    {.name = "startprivate", .handle = NULL},
-    {.name = "private",      .handle = NULL},
-    {.name = "stopprivate",  .handle = NULL},
 };
 
 /* Print usage and exit */
@@ -521,7 +518,7 @@ static int set_ptop_sock(int server_sock)
 static int cmd_logout(UNUSED struct scmd_payload *scmd)
 {
     client.is_logged_out = true;
-    return 0;
+    return ptop_stop_all();
 }
 
 /* Used for when the client sends to whoelse command to the server */

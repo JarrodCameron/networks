@@ -31,4 +31,7 @@ void ptop_fill_fd_set(fd_set *read_set);
  * accordingly */
 int ptop_handle_read_set(fd_set *read_set);
 
+/* Close all of the private connections */
+int ptop_stop_all(void);
+
 #endif /* PTOP_H */
