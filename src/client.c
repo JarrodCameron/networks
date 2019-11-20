@@ -58,6 +58,8 @@ static int handle_scmd(struct scmd_payload *scmd);
 static int socket_read_handle(void);
 static int stdin_read_handle(void);
 static bool is_help_cmd(char *cmd);
+static int get_max_fd(fd_set *read_set);
+static void fill_fd_set(fd_set *read_set);
 static void cmd_help(void);
 static int cmd_whoelse(struct scmd_payload *scmd);
 static int set_ptop_sock(int server_sock);
@@ -66,7 +68,6 @@ static int cmd_broadcast(UNUSED struct scmd_payload *scmd);
 static int cmd_block(struct scmd_payload *scmd);
 static const char *get_first_non_space(const char *line);
 static int deploy_command(char cmd[MAX_COMMAND]);
-static int dual_select(int *sock_ret, int *stdin_ret, int *ptop_ret);
 static void run_client (void);
 static int cmd_logout(struct scmd_payload *scmd);
 static int handle_broad_logoff(void);
@@ -687,37 +688,40 @@ static int deploy_command(char cmd[MAX_COMMAND])
     panic("The server should of returned \"bad_command\"!\n");
 }
 
-/* Use the "select" system call for stdin and the server socket. If the
- * fd is selected then it is set to 1, otherwise it is set to zero. Return
- * -1 on error */
-static int dual_select(int *sock_ret, int *stdin_ret, int *ptop_ret)
+/* Select a varaible number of sockets at the same time, return -1 on error
+ * otherwise zero is returned */
+static int multi_select(fd_set *read_set)
 {
-    fd_set read_set;
-    FD_ZERO(&read_set);
-    FD_SET(0, &read_set); /* stdin fd */
-    FD_SET(client.sock, &read_set);
-    FD_SET(client.ptop_sock, &read_set);
+    fill_fd_set(read_set);
+    int nfds = get_max_fd(read_set) + 1;
+    return select(nfds, read_set, NULL, NULL, NULL);
+}
 
-    int nfds = MAX(0 /* stdin fd */, client.sock);
-    nfds = MAX(nfds, client.ptop_sock) + 1;
+/* Fill the fd set will all fd's that need to be listened to */
+static void fill_fd_set(fd_set *read_set)
+{
+    FD_ZERO(read_set);
+    FD_SET(client.sock, read_set);
+    FD_SET(0 /* stdin */, read_set);
+    FD_SET(client.ptop_sock, read_set);
+    ptop_fill_fd_set(read_set);
+}
 
-    int ret = select(nfds, &read_set, NULL, NULL, NULL);
-    if (ret < 0) {
-        return -1;
+/* Return the large file descriptor in the set of file descritpors */
+static int get_max_fd(fd_set *read_set)
+{
+    int max_fd = -1;
+    for (int i = 0; i < FD_SETSIZE; i++) {
+        if (FD_ISSET(i, read_set))
+            max_fd = MAX(max_fd, i);
     }
-
-    *sock_ret = !!FD_ISSET(client.sock, &read_set);
-    *stdin_ret = !!FD_ISSET(0 /* stdin fd */, &read_set);
-    *ptop_ret = !!FD_ISSET(client.ptop_sock, &read_set);
-    return 0;
+    return max_fd;
 }
 
 /* Run the client, this is where the communication to the server takes place.
  * This is logs the client in to the server */
 static void run_client (void)
 {
-    int sock_ret, stdin_ret, ptop_ret;
-
     if (attempt_login(client.sock) < 0)
         return;
 
@@ -728,35 +732,43 @@ static void run_client (void)
 
     while (1) {
 
+        fd_set read_set;
+
         printf("> ");
         fflush(stdout);
 
-        sock_ret = stdin_ret = ptop_ret = 0;
-        if (dual_select(&sock_ret, &stdin_ret, &ptop_ret) < 0) {
+        if (multi_select(&read_set) < 0) {
             printf("Failed to receive input from server or client\n");
             return;
         }
 
-        if (sock_ret) {
+        if (FD_ISSET(client.sock, &read_set)) {
+            FD_CLR(client.sock, &read_set);
             if (socket_read_handle() < 0) {
                 printf("Failed to handle socket payload\n");
                 return;
             }
         }
 
-        if (stdin_ret) {
+        if (FD_ISSET(0 /* stdin */, &read_set)) {
+            FD_CLR(0, &read_set);
             if (stdin_read_handle() < 0) {
                 printf("Failed to handle stdin payload\n");
                 return;
             }
         }
 
-        if (ptop_ret) {
+        if (FD_ISSET(client.ptop_sock, &read_set)) {
+            FD_CLR(client.ptop_sock, &read_set);
             if (ptop_accept() < 0) {
-                 // TODO Scan for the sockets and call ptop_handle_payload
                 printf("Failed peer to peer communication\n");
                 return;
             }
+        }
+
+        if (ptop_handle_read_set(&read_set) < 0) {
+            printf("Failed peer to peer communication\n");
+            return;
         }
 
         if (client.is_logged_out == true)

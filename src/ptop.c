@@ -30,6 +30,12 @@ static int query_ptop(char *cmd, struct tokens *toks, struct ptop **ptop);
 static int add_client_ptop(struct ptop *ptop);
 static int init_ptop_conn(struct ptop *ptop);
 static void remove_ptop(struct ptop *ptop);
+static int sock_private(struct ptop *ptop, struct tokens *toks);
+static int get_by_fd_cmp(void *item, void *arg);
+static struct ptop *ptop_get_by_fd(int fd);
+static int ptop_handle_incoming_payload(struct ptop *ptop);
+static void fill_fd_set_iter(void *item, void *arg);
+static int ptop_get_by_name(const char *name, struct ptop **ptop);
 static struct ptop *ptop_init_with_name(int sock, char name[MAX_UNAME]);
 static int add_ptop_session(int sock, char name[MAX_UNAME]);
 static int ssp_handle_code(struct ssp_payload ssp);
@@ -43,8 +49,8 @@ static int cmd_private(char *safe_cmd, struct tokens *toks);
 static int fill_ptop(char *uname, struct ptop **ptop);
 static int init_conn_to_server(char *cmd);
 static int cmd_startprivate(char *safe_cmd, struct tokens *toks);
-static int deploy_sock_payload(struct tokens *toks);
-static int sock_startprivate(struct tokens *toks);
+static int deploy_sock_payload(struct ptop *ptop, struct tokens *toks);
+static int sock_startprivate(struct ptop *p, struct tokens *t);
 
 /* Similar to the connection in connection.[ch] */
 struct ptop {
@@ -67,7 +73,7 @@ static struct {
     int (*cmd_handle)(char *safe_cmd, struct tokens *);
 
     /* Handle socket payloads */
-    int (*sock_handle)(struct tokens *);
+    int (*sock_handle)(struct ptop *curr_conn, struct tokens *);
 } commands[] = {
     {
         .name = "startprivate",
@@ -77,7 +83,7 @@ static struct {
     {
         .name = "private",
         .cmd_handle = cmd_private,
-        .sock_handle = NULL,
+        .sock_handle = sock_private,
     },
     {
         .name = "stopprivate",
@@ -122,20 +128,6 @@ int ptop_handle_cmd(char cmd[MAX_MSG_LENGTH])
 
 }
 
-int ptop_handle_payload(void *payload)
-{
-    struct pcmd_payload *pcmd = payload;
-    struct tokens *toks = NULL;
-
-    if (tokenise(pcmd->cmd, &toks) < 0)
-        return -1;
-
-    int ret = deploy_sock_payload(toks);
-
-    tokens_free(toks);
-    return ret;
-}
-
 int ptop_accept(void)
 {
     struct phs_payload phs = {0};
@@ -163,6 +155,76 @@ int ptop_accept(void)
     return 0;
 }
 
+int ptop_handle_read_set(fd_set *read_set)
+{
+    for (int i = 0; i < FD_SETSIZE; i++) {
+        if (FD_ISSET(i, read_set)) {
+            struct ptop *ptop = ptop_get_by_fd(i);
+            if (ptop_handle_incoming_payload(ptop) < 0)
+                return -1;
+        }
+    }
+    return 0;
+}
+
+void ptop_fill_fd_set(fd_set *read_set)
+{
+    struct list *ptop_list = client_get_ptops();
+    list_traverse(ptop_list, fill_fd_set_iter, read_set);
+}
+
+/* Handle the incoming payload for this connection */
+static int ptop_handle_incoming_payload(struct ptop *ptop)
+{
+    assert(ptop != NULL);
+    struct pcmd_payload pcmd = {0};
+    if (recv_payload_pcmd(ptop->sock, &pcmd) < 0)
+        return -1;
+
+    struct tokens *toks = NULL;
+    if (tokenise(pcmd.cmd, &toks) < 0)
+        return -1;
+
+    if (toks == NULL)
+        return 0; // TODO Message for bad argument if needed?
+
+    return deploy_sock_payload(ptop, toks);
+}
+
+/* Return the peer to peer connection with the socket equal to this fd */
+static struct ptop *ptop_get_by_fd(int fd)
+{
+    return list_get (
+        client_get_ptops(),
+        get_by_fd_cmp,
+        &fd
+    );
+}
+
+/* Used to iterate over a list and return the item that is equal to the fd
+ * which is pointed to by arg */
+static int get_by_fd_cmp(void *item, void *arg)
+{
+    struct ptop *ptop = item;
+    int *fd = arg;
+    return !(ptop->sock == *fd);
+}
+
+/* Used to iterate over the list of ptops to update the read set */
+static void fill_fd_set_iter(void *item, void *arg)
+{
+    struct ptop *ptop = item;
+    fd_set *read_set = arg;
+    FD_SET(ptop->sock, read_set);
+}
+
+/* Compare the peer to peer connection to the name, return the result of
+ * strncmp */
+static int ptop_name_cmp(struct ptop *ptop, const char *name)
+{
+    return strncmp(ptop->peer_name, name, MAX_UNAME);
+}
+
 /* Add a peer to peer connection to the list of ptop connections */
 static int add_ptop_session(int sock_to_add, char name[MAX_UNAME])
 {
@@ -181,20 +243,29 @@ static int add_ptop_session(int sock_to_add, char name[MAX_UNAME])
 }
 
 /* Given the tokens send this to the appropriate function */
-static int deploy_sock_payload(struct tokens *toks)
+static int deploy_sock_payload(struct ptop *ptop, struct tokens *toks)
 {
     unsigned int i;
     for (i = 0; i < ARRSIZE(commands); i++) {
         if (strcmp(toks->toks[0], commands[i].name) == 0)
-            return commands[i].sock_handle(toks);
+            return commands[i].sock_handle(ptop, toks);
     }
     panic("Received bad socket payload: \"%s\"\n", toks->toks[0]);
 }
 
 /* Client received socket message from a peer to start a private conn */
-static int sock_startprivate(UNUSED struct tokens *toks)
+static int sock_startprivate(UNUSED struct ptop *p, UNUSED struct tokens *t)
 {
     panic("This function should never be called\n");
+}
+
+/* Used to handle the private message received from the peer */
+static int sock_private(struct ptop *ptop, struct tokens *toks)
+{
+    printf("Received private message\n");
+    printf("  Sender: %s\n", ptop->peer_name);
+    printf("  Message: %s\n", toks->toks[2]);
+    return 0;
 }
 
 /* Initialise the ptop struct with the name and socket */
@@ -272,11 +343,39 @@ static int cmd_startprivate(char *safe_cmd, struct tokens *toks)
 /* This is used to handle the "private" command by the client */
 static int cmd_private(char *safe_cmd, struct tokens *toks)
 {
-    panic("The cmd_private command\n");
-    // todo: The cmd_private command
-    (void) toks;
-    (void) safe_cmd;
-    return -1;
+    struct ptop *ptop = NULL;
+    if (ptop_get_by_name(toks->toks[1], &ptop) < 0)
+        return -1;
+
+    if (ptop == NULL) {
+        printf("No connection with \"%s\"\n", toks->toks[1]);
+        return 0;
+    }
+
+    return send_payload_pcmd(ptop->sock, safe_cmd);
+}
+
+/* return the ptop with the matching name, if no matching ptops then NULL
+ * is returned */
+static int ptop_get_by_name(const char *name, struct ptop **ptop)
+{
+    struct list *ptop_list = client_get_ptops();
+    struct iter *iter = list_iter_init(ptop_list);
+    if (iter == NULL)
+        return -1;
+
+    while (iter_has_next(iter) == true) {
+
+        struct ptop *curr_ptop = iter_get(iter);
+        if (ptop_name_cmp(curr_ptop, name) == 0) {
+            *ptop = curr_ptop;
+            break;
+        }
+
+        iter_next(iter);
+    }
+    iter_free(iter);
+    return 0;
 }
 
 /* This is used to handle the "stopprivate" command by the client */

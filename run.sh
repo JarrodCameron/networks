@@ -13,6 +13,9 @@ IP_ADDR="127.0.0.1"
 # Flags for valgrind
 VAL="valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all"
 
+# Delay between each connection to ensure the right order
+DELAY=0.1
+
 # Exit if non-zero reutrn status
 set -e
 
@@ -89,10 +92,11 @@ tmux split-window -v -t "$SESSION"              # Create horizontal split
 tmux split-window -h -t 2              # Create horizontal split
 tmux split-window -h -t 1              # Create horizontal split
 tmux send-keys -t 1 "clear && echo '[SERVER]' && $server_cmd" C-m  # Command for top panel
-sleep 0.05
+sleep "$DELAY"
 tmux send-keys -t 2 "clear && echo '[CLIENT 1]' && $client_cmd" C-m  # Command for bot panel
-sleep 0.05
+sleep "$DELAY"
 tmux send-keys -t 3 "clear && echo '[CLIENT 2]' && $client_cmd" C-m  # Command for bot panel
-sleep 0.05
+sleep "$DELAY"
 tmux send-keys -t 4 "clear && echo '[CLIENT 3]' && $client_cmd" C-m  # Command for bot panel
+sleep "$DELAY"
 tmux attach-session -t "$SESSION"               # Attach to session
