@@ -5,12 +5,6 @@
  *                                         *
  *******************************************/
 
-/* Questions:
- * - Do we have to worry about receiving messages in the wrong order? - Ask webcms
- * - On failed attempts can we exit or do we need to log out? - Just exit
- * - Multiple threads for client? - Nah, just use select(2)
- */
-
 #include <arpa/inet.h>
 #include <assert.h>
 #include <netdb.h>
