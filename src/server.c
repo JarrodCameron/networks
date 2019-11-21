@@ -9,30 +9,18 @@
 // TODO 2) Test runscript on cse
 // TODO 3) DNS lookup
 
-#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <pthread.h>
 
 #include "connection.h"
-#include "header.h"
 #include "logger.h"
 #include "slogin.h"
-#include "status.h"
-#include "user.h"
 #include "util.h"
 
 /* For returning a service function pointer */

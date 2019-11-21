@@ -3,12 +3,9 @@
  *    Author: Jarrod Cameron (z5210220)    *
  *    Date:   29/10/19 22:26               *
  *                                         *
-  *******************************************/
-
-#include <stdio.h>
+ *******************************************/
 
 #include "status.h"
-#include "util.h"
 
 const char *code_to_str(enum status_code code)
 {

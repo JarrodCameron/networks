@@ -4,16 +4,7 @@
 /* This describes the header of the packets that will be sent.
  */
 
-#include <assert.h>
 #include <netdb.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "config.h"
 #include "status.h"

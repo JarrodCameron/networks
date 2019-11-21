@@ -1,8 +1,6 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include <stdbool.h>
-
 #include "iter.h"
 
 /* Defined in list.c */

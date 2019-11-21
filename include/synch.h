@@ -5,6 +5,7 @@
  * as seen in the OS course. It also provides easier to remember function
  * names */
 
+/* Defined in synch.c */
 struct lock;
 
 /* Create a lock, currently unlocked */

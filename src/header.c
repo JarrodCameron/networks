@@ -5,23 +5,12 @@
  *                                         *
  *******************************************/
 
-#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "header.h"
-#include "util.h"
 
 /* Helper functions */
 static int recv_payload(int, enum task_id, void *, uint32_t);

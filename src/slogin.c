@@ -5,22 +5,12 @@
  *                                         *
  *******************************************/
 
-#include <arpa/inet.h>
-#include <assert.h>
-#include <netdb.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "header.h"
-#include "list.h"
 #include "logger.h"
 #include "user.h"
-#include "util.h"
 
 /* Query the user for their user name. Return the "user" if the user is legit
  * otherwise return NULL. NULL is also returned in case user is blocked,

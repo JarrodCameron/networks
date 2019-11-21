@@ -4,10 +4,6 @@
 /* This is used to handle pretty much everything regardding ptop (peer to peer)
  * connection between clients and sometimes the server */
 
-#include <stdbool.h>
-
-#include "config.h"
-
 /* Defined in ptop.c */
 struct ptop;
 

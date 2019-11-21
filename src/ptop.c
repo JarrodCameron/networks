@@ -5,22 +5,15 @@
  *                                         *
  *******************************************/
 
-#include <arpa/inet.h>
 #include <assert.h>
-#include <netdb.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "client.h"
 #include "ptop.h"
 #include "util.h"
-#include "header.h"
 
 /* Helper functions */
 static const char *get_first_non_space(const char *line);

@@ -1,9 +1,6 @@
 #ifndef USER_H
 #define USER_H
 
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "list.h"
 #include "config.h"
 
@@ -90,11 +87,5 @@ int user_get_backlog_len(struct user *);
 /* Pop a backloged item of the users backlog, if there are no items left then
  * NULL is returned */
 struct sdmm_payload *user_pop_backlog(struct user *);
-
-// For debugging, print the list of users
-void user_list_dump(struct list *users);
-
-// For debuggin, dump contents of a user
-void user_dump (struct user *user);
 
 #endif /* USER_H */

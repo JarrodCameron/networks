@@ -1,21 +1,9 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
-#include <assert.h>
-#include <netdb.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include <pthread.h>
 
 #include "header.h"
-#include "status.h"
 #include "user.h"
 
 /* Defined in connection.c */

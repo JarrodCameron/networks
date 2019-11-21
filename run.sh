@@ -50,12 +50,13 @@ if [ "$1" = "comp" ]; then
 elif [ "$1" = "val" ]; then
     server_cmd="$VAL $server_cmd"
     client_cmd="sleep 1 && $VAL $client_cmd"
-elif [ "$1" = "stat" ]; then
-    printf "Number of lines: "
-    cat include/* src/* | wc -l
+elif [ "$1" = "ip" ]; then
     printf "IPv4: "
     hostname -i
     exit 0
+elif [ -n "$1" ]; then
+    echo "Unknown argument: $1"
+    echo "Usage: bash ./run.sh [ip]"
 fi
 
 clear
@@ -88,15 +89,22 @@ echo
 kill_open_session &>/dev/null
 
 tmux new-session -d -s "$SESSION" -n "$WINNAME" # Create session, don't attach, set names
+
+# Depending on .tmux.config the first pane will be different
+pane1="$(tmux list-panes -t Networks | awk -F':' '{print $1}')"
+pane2="$((pane1+1))"
+pane3="$((pane1+2))"
+pane4="$((pane1+3))"
+
 tmux split-window -v -t "$SESSION"              # Create horizontal split
-tmux split-window -h -t 2              # Create horizontal split
-tmux split-window -h -t 1              # Create horizontal split
-tmux send-keys -t 1 "clear && echo '[SERVER]' && $server_cmd" C-m  # Command for top panel
+tmux split-window -h -t "$pane2"              # Create horizontal split
+tmux split-window -h -t "$pane1"              # Create horizontal split
+tmux send-keys -t "$pane1" "clear && echo '[SERVER]' && $server_cmd" C-m  # Command for top panel
 sleep "$DELAY"
-tmux send-keys -t 2 "clear && echo '[CLIENT 1]' && $client_cmd" C-m  # Command for bot panel
+tmux send-keys -t "$pane2" "clear && echo '[CLIENT 1]' && $client_cmd" C-m  # Command for bot panel
 sleep "$DELAY"
-tmux send-keys -t 3 "clear && echo '[CLIENT 2]' && $client_cmd" C-m  # Command for bot panel
+tmux send-keys -t "$pane3" "clear && echo '[CLIENT 2]' && $client_cmd" C-m  # Command for bot panel
 sleep "$DELAY"
-tmux send-keys -t 4 "clear && echo '[CLIENT 3]' && $client_cmd" C-m  # Command for bot panel
+tmux send-keys -t "$pane4" "clear && echo '[CLIENT 3]' && $client_cmd" C-m  # Command for bot panel
 sleep "$DELAY"
 tmux attach-session -t "$SESSION"               # Attach to session

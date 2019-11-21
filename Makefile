@@ -5,7 +5,6 @@ INCDIR=include
 SRCDIR=src
 BUILDDIR=build
 BINS=server client
-TRASH=cscope.out tags
 
 CC=gcc
 CFLAGS=-Wall -Wextra -g3 -ggdb -I$(INCDIR)

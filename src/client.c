@@ -7,19 +7,13 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
-#include <netdb.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <stdbool.h>
 
 #include "clogin.h"
-#include "config.h"
 #include "header.h"
 #include "ptop.h"
 #include "util.h"

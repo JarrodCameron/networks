@@ -6,17 +6,12 @@
  *******************************************/
 
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <pthread.h>
 
 #include "util.h"
-#include "connection.h"
-#include "header.h"
-#include "status.h"
 #include "synch.h"
 #include "user.h"
 

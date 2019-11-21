@@ -149,29 +149,6 @@ struct user *user_get_by_name (struct list *users, const char uname[MAX_UNAME])
     return list_get (users, cmp, (void*) uname);
 }
 
-void user_list_dump(struct list *users)
-{
-    void foo(void *item, UNUSED void *arg)
-    {
-        struct user *user = item;
-        user_dump(user);
-        return;
-    }
-    list_traverse(users, foo, NULL);
-}
-
-void user_dump(struct user *user)
-{
-    printf("/----------\n");
-    printf("| username: %s\n", user->uname);
-    printf("| password: %s\n", user->pword);
-    printf("| id:       %d\n", user->id);
-    //printf("| blocked:  %d\n", user->blocked);
-    printf("| lock:     %p\n", user->lock);
-    printf("\\----------\n");
-    fflush(stdout);
-}
-
 void user_set_blocked(struct user *user)
 {
     lock_acquire(user->lock);
