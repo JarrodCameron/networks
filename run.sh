@@ -2,7 +2,7 @@
 
 # Tmux window names
 SESSION="Networks"
-WINNAME="Author: Jarrod Cameron (z5210220)"
+WINNAME="z5210220"
 
 # Args for client/server
 SERVER_PORT="1024"
@@ -14,7 +14,7 @@ IP_ADDR="127.0.0.1"
 VAL="valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all"
 
 # Delay between each connection to ensure the right order
-DELAY=0.1
+DELAY=0.3
 
 # Exit if non-zero reutrn status
 set -e
@@ -74,6 +74,9 @@ echo "    $server_cmd"
 echo
 echo "  CLIENT:"
 echo "    $client_cmd"
+echo
+echo "  Author:"
+echo "    Jarrod Cameron (z521022)"
 echo
 
 # /-------------------------\
