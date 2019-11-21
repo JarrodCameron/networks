@@ -1,9 +1,13 @@
-/*******************************************
+/*******************************************;
  *                                         *
  *    Author: Jarrod Cameron (z5210220)    *
  *    Date:   13/10/19 12:33               *
  *                                         *
  *******************************************/
+
+// TODO 1) Documentation
+// TODO 2) Test runscript on cse
+// TODO 3) DNS lookup
 
 #include <arpa/inet.h>
 #include <assert.h>
@@ -33,6 +37,7 @@
 
 /* For returning a service function pointer */
 typedef int (*service_handle)(int sock, struct tokens *, struct user *);
+typedef void (*log_handle)(struct tokens *, const char *);
 
 static struct {
 
@@ -51,6 +56,15 @@ static struct {
 } server = {0};
 
 /* Helper functions */
+static void log_command(struct tokens *tokes, struct user *);
+static void message_logger(struct tokens *toks, const char *user_name);
+static void broadcast_logger(struct tokens *toks, const char *user_name);
+static void whoelsesince_logger(struct tokens *toks, const char *user_name);
+static void whoelse_logger(struct tokens *toks, const char *user_name);
+static void block_logger(struct tokens *toks, const char *user_name);
+static void unblock_logger(struct tokens *toks, const char *user_name);
+static void logout_logger(struct tokens *toks, const char *user_name);
+static void startprivate_logger(struct tokens *toks, const char *user_name);
 static int message_service(int sock, struct tokens *toks, struct user *user);
 static int logout_service(int sock, struct tokens *toks, struct user *user);
 static void usage (void);
@@ -77,17 +91,98 @@ static enum status_code deploy_message(struct user *r, struct user *s, const cha
 struct {
     const char *name;
     service_handle service;
+    log_handle logger;
 } command_services[] = {
     // WARNING: Do not change the order!!!
-    {.name = "message",      .service = message_service},
-    {.name = "broadcast",    .service = broadcast_service},
-    {.name = "whoelsesince", .service = whoelsesince_service},
-    {.name = "whoelse",      .service = whoelse_service},
-    {.name = "block",        .service = block_service},
-    {.name = "unblock",      .service = unblock_service},
-    {.name = "logout",       .service = logout_service},
-    {.name = "startprivate", .service = startprivate_service},
+    {
+        .name = "message",
+        .service = message_service,
+        .logger = message_logger
+    },
+    {
+        .name = "broadcast",
+        .service = broadcast_service,
+        .logger = broadcast_logger
+    },
+    {
+        .name = "whoelsesince",
+        .service = whoelsesince_service,
+        .logger = whoelsesince_logger
+    },
+    {
+        .name = "whoelse",
+        .service = whoelse_service,
+        .logger = whoelse_logger
+    },
+    {
+        .name = "block",
+        .service = block_service,
+        .logger = block_logger
+    },
+    {
+        .name = "unblock",
+        .service = unblock_service,
+        .logger = unblock_logger
+    },
+    {
+        .name = "logout",
+        .service = logout_service,
+        .logger = logout_logger
+    },
+    {
+        .name = "startprivate",
+        .service = startprivate_service,
+        .logger = startprivate_logger
+    },
 };
+
+/* Logger for the "message" command */
+static void message_logger(struct tokens *toks, const char *user_name)
+{
+    logs("Message: \"%s\" -> \"%s\"\n", user_name, toks->toks[1]);
+}
+
+/* Logger for the "broadcast" command */
+static void broadcast_logger(UNUSED struct tokens *toks, const char *user_name)
+{
+    logs("Broadcast: \"%s\"\n", user_name);
+}
+
+/* Logger for the "whoelsesince" command */
+static void whoelsesince_logger(struct tokens *toks, const char *user_name)
+{
+    logs("Whoelsesince: \"%s\" t=%s\n", user_name, toks->toks[1]);
+}
+
+/* Logger for the "whoelse" command */
+static void whoelse_logger(UNUSED struct tokens *toks, const char *user_name)
+{
+    logs("Whoelse: \"%s\"\n", user_name);
+}
+
+/* Logger for the "block" command */
+static void block_logger(struct tokens *toks, const char *user_name)
+{
+    logs("Block: \"%s\" -> \"%s\"\n", user_name, toks->toks[1]);
+}
+
+/* Logger for the "unblock" command */
+static void unblock_logger(struct tokens *toks, const char *user_name)
+{
+    logs("Unblock: \"%s\" -> \"%s\"\n", user_name, toks->toks[1]);
+}
+
+/* Logger for the "logout" command */
+static void logout_logger(UNUSED struct tokens *toks, const char *user_name)
+{
+    logs("Logout: \"%s\"\n", user_name);
+}
+
+/* Logger for the "startprivate" command */
+static void startprivate_logger(struct tokens *toks, const char *user_name)
+{
+    logs("Startprivate: \"%s\" -> \"%s\"\n", user_name, toks->toks[1]);
+}
 
 /* Print usage and exit */
 static void usage (void)
@@ -137,6 +232,7 @@ static void *thread_landing (void *arg)
     list_rm(server.connections, conn, ptr_cmp);
     conn_free(conn);
 
+    logs("Connection closed... killing thread\n");
     return NULL;
 }
 
@@ -306,7 +402,6 @@ static int whoelsesince_service
     struct user *user
 )
 {
-
     time_t off_time;
     sscanf(toks->toks[1], "%ld", &off_time);
 
@@ -475,6 +570,8 @@ static int service_query
         return (ret < 0) ? -1 : 0;
     }
 
+    log_command(toks, user);
+
     service_handle service = lookup_service(toks->toks[0]);
     assert(service != NULL);
 
@@ -483,6 +580,8 @@ static int service_query
     return ret;
 }
 
+/* The client has just logged in and needs to receive their backlog of
+ * messages */
 static int handle_backlog(int sock, struct user *user)
 {
     int backlog_len = user_get_backlog_len(user);
@@ -500,6 +599,25 @@ static int handle_backlog(int sock, struct user *user)
         free(sdmm);
     }
     return 0;
+}
+
+/* Log the command to the display */
+static void log_command(struct tokens *toks, struct user *user)
+{
+    char *user_name = user_get_uname(user);
+    if (user_name == NULL)
+        return;
+
+    unsigned int i;
+    for (i = 0; i < ARRSIZE(command_services); i++) {
+        const char *name = command_services[i].name;
+        log_handle logger = command_services[i].logger;
+        if (strcmp(toks->toks[0], name) == 0) {
+            logger(toks, user_name);
+            break;
+        }
+    }
+    free(user_name);
 }
 
 /* This handles all commands sent from the client to the server for commands,
@@ -531,8 +649,6 @@ static void client_command_handler(int sock, struct user *user)
 
         free (payload);
 
-        logs("Received payload\n");
-
         if (user_is_logged_on(user) == false)
             return;
     }
@@ -541,14 +657,7 @@ static void client_command_handler(int sock, struct user *user)
 /* The user has received a timeout and needs to be logged out */
 static int timeout_user(int sock, struct user *user)
 {
-    char *name;
-    int ret;
-
-    name = user_get_uname(user);
-    logs("User timeout: \"%s\"\n", name);
-    free(name);
-
-    ret = send_payload_scmd(sock, time_out, 0 /* ignored */);
+    int ret = send_payload_scmd(sock, time_out, 0 /* ignored */);
     user_log_off(user);
     return ret;
 }
@@ -693,7 +802,7 @@ static void run_server (void)
             continue;
         }
 
-        logs("We have a connection!!!\n");
+        logs("New connection\n");
 
         conn = conn_init ();
         if (conn == NULL) {
@@ -712,7 +821,7 @@ static void run_server (void)
         conn_set_cic(conn, cic);
 
         if (dispatch_event (conn) < 0) {
-            elogs("Failed to server request\n");
+            elogs("Failed to spawn thread\n");
             conn_free(conn);
             continue;
         }
@@ -771,3 +880,4 @@ int main (int argc, char **argv)
 
     return 0;
 }
+

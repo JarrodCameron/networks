@@ -23,9 +23,6 @@
 /* The maximium length that a user can send from the command line */
 #define MAX_MSG_LENGTH (1024)
 
-/* Length of response back to client */
-#define MAX_RESP (128)
-
 /* The maximium length of a commannd that can be entered by the user */
 #define MAX_COMMAND (1024)
 
@@ -36,12 +33,5 @@
 /* this is the number of login attempts before the user gets blocked,
  * spec saya three. */
 #define NLOGIN_ATTEMPTS 3
-
-/* The maximium number of possible tokens. The command with the largest
- * number of tokens is:
- *      private <user> <download> <filename> <chunk>
- * If you want buffer overflows please make this number smaller :P
- */
-#define MAX_TOKENS 5
 
 #endif /* CONFIG_H */

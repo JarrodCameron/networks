@@ -60,13 +60,11 @@ int send_payload(
     int sock,
     enum task_id task_id,
     uint32_t len,
-    uint32_t client_id,
     void *payload
 )
 {
     struct header h = {
         .task_id = task_id,
-        .client_id = client_id,
         .data_len = len,
     };
 
@@ -124,6 +122,7 @@ const char *id_to_str(enum task_id id)
         case server_start_private: return "server_start_private";
         case ptop_command:         return "ptop_command";
         case ptop_init_conn:       return "ptop_init_conn";
+        case ptop_handshake:       return "ptop_handshake";
         default:                   return "{Invalid task_id}";
     }
 }
@@ -205,7 +204,6 @@ int send_payload_ ## TYPE (int sock)        \
         sock,                               \
         HEAD,                               \
         sizeof(struct TYPE ## _payload),    \
-        0, /* ignored */                    \
         (void **) & TYPE                    \
     );                                      \
 }
@@ -231,7 +229,6 @@ int send_payload_ ## TYPE (int sock, enum status_code code) \
         sock,                                               \
         HEAD,                                               \
         sizeof(struct TYPE ## _payload),                    \
-        0, /* ignored */                                    \
         (void **) & TYPE                                    \
     );                                                      \
 }
@@ -254,7 +251,6 @@ int send_payload_ ## TYPE (int sock, const char BUFF_NAME[BUFF_SIZE]) \
         sock,                                                   \
         HEAD,                                                   \
         sizeof(struct TYPE ## _payload),                        \
-        0, /* ignored */                                        \
         (void **) & TYPE                                        \
     );                                                          \
 }
@@ -284,7 +280,6 @@ int send_payload_sdmm
         sock,
         server_dm_msg,
         sizeof(struct sdmm_payload),
-        0, /* ignored */
         (void **) &sdmm
     );
 }
@@ -299,7 +294,6 @@ int send_payload_scmd(int sock, enum status_code code, uint64_t extra)
         sock,
         server_command,
         sizeof(scmd),
-        0, // ignored
         (void **) &scmd
     );
 }
@@ -321,7 +315,6 @@ int send_payload_ssp
         sock,
         server_start_private,
         sizeof(ssp),
-        0, // ignored
         (void **) &ssp
     );
 }
@@ -336,7 +329,6 @@ int send_pic_payload(int sock, unsigned short port, struct in_addr addr)
         sock,
         ptop_init_conn,
         sizeof(pic),
-        0, // ignored
         (void **) &pic
     );
 

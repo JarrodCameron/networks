@@ -78,7 +78,6 @@ const char *id_to_str(enum task_id id);
 
 struct header {
     enum task_id task_id;   /* The task to be undertaken by the receiver */
-    uint32_t client_id;     /* Clien't unique identifier */
     uint32_t data_len;      /* How many bytes are being transmitted */
 };
 
@@ -229,7 +228,6 @@ int send_payload(
     int sock,
     enum task_id task_id,
     uint32_t len,
-    uint32_t client_id,
     void *payload
 );
 

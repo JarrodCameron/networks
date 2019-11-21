@@ -45,7 +45,7 @@ client_cmd="./client $IP_ADDR $port"
 
 if [ "$1" = "comp" ]; then
     clear
-    make
+    make full
     exit 0
 elif [ "$1" = "val" ]; then
     server_cmd="$VAL $server_cmd"

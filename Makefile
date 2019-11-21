@@ -37,4 +37,7 @@ run: all
 full: clean all
 
 clean:
-	rm -rf $(BINS) $(BUILDDIR) vgcore.* $(TRASH)
+	rm -rf $(BINS) $(BUILDDIR) vgcore.*
+
+trash:
+	rm -rf $(TRASH)
