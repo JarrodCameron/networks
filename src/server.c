@@ -5,10 +5,6 @@
  *                                         *
  *******************************************/
 
-// TODO 1) Documentation
-// TODO 2) Test runscript on cse
-// TODO 3) DNS lookup
-
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
