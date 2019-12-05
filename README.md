@@ -31,17 +31,12 @@ To run the client:
 
 NOTE: The `server` needs to be run before the `client`.
 
-|-----------------|-----------------------|
 | Argument | Usage |
-|-----------------|-----------------------|
+| -------- | ----- |
 | `server_port` | The port for the server to listen to and the client to connect to. |
-|-----------------|-----------------------|
 | `block_duration` | Number of seconds to blocker a user after 3 invalid login attempts. |
-|-----------------|-----------------------|
 | `timeout` | Number of seconds before logging a user out due to inactivity. |
-|-----------------|-----------------------|
 | `host_name` | The host name or IPv4 address (IPv6 is not supported) of the server. |
-|-----------------|-----------------------|
 
 After logging in, use the `?` or `help` command to get a list of available
 commands.
