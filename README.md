@@ -1,11 +1,12 @@
 # COMP3331 - Major Assignment
 
-This is a client/server and peer to peer network for sending messages.
+This is a client/server and peer to peer network application
+for sending messages.
 After the server is running each _client_ can log in and send messages
 via the server. A peer to peer connection can be established after logging
 in to communicate to other clients.
 
-Internal implementation can be seen in `docs/report.pdf`.
+The internal implementation can be seen in `docs/report.pdf`.
 
 ## Compilation
 
@@ -18,6 +19,9 @@ The dependencies are:
 All of these should be installed by default on most Linux distributions.
 To compile run `make` in the root directory. To clean the root directory
 run `make run`.
+
+The `server` and `client` elf file should be in the root directory after
+compilation.
 
 ## Running Client/Server
 
@@ -54,15 +58,19 @@ yoda wise
 ...
 ```
 
-The `john`, `hans`, `yoda`, have to corresponding passwords `smith`, `falcon`,
+The `john`, `hans`, `yoda`, user names
+have to corresponding passwords `smith`, `falcon`,
 and `wise`.
 
 ## `run.sh`
 
-The `run.sh` file can be executed using the command `bash run.sh`.
+The `run.sh` script can be executed using the command:
+
+> bash run.sh
+
 This will compile the code and create a `tmux` session with one
 server and three clients. The `netstat` program is used to find a free
-port. It is possible `tmux` and `netstat` are not installed be default.
+port. It is possible `tmux` and `netstat` are not installed.
 Use the following command to install the dependencies on Debian based
 distributions (e.g. Ubuntu):
 
@@ -73,6 +81,6 @@ apt update && apt install tmux net-tools
 NOTE: There is a slight delay after running the script. This ensures the server
 is initialised before the clients connect.
 
-Obligatory screen shot:
+### Obligatory screen shot
 
 ![](docs/screenshot.png)
