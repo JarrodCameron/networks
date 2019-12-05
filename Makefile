@@ -7,14 +7,38 @@ BUILDDIR=build
 BINS=server client
 
 CC=gcc
-CFLAGS=-Wall -Wextra -g3 -ggdb -I$(INCDIR)
+CFLAGS=-Wall -Wextra -Werror -I$(INCDIR)
 
 LDFLAGS=-pthread
 
-SERVER_DEPS=user.o list.o header.o slogin.o logger.o util.o synch.o status.o iter.o server.o connection.o queue.o
-CLIENT_DEPS=client.o clogin.o header.o util.o status.o banner.o queue.o synch.o iter.o ptop.o list.o
+SERVER_DEPS= \
+	connection.o \
+	header.o \
+	iter.o \
+	list.o \
+	logger.o \
+	queue.o \
+	server.o \
+	slogin.o \
+	status.o \
+	synch.o \
+	user.o \
+	util.o
 
-.PHONY: all clean run full
+CLIENT_DEPS= \
+	banner.o \
+	client.o \
+	clogin.o \
+	header.o \
+	iter.o \
+	list.o \
+	ptop.o \
+	queue.o \
+	status.o \
+	synch.o \
+	util.o
+
+.PHONY: all clean
 
 all: $(BUILDDIR) $(BINS)
 
@@ -30,13 +54,5 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
-run: all
-	bash ./run.sh
-
-full: clean all
-
 clean:
-	rm -rf $(BINS) $(BUILDDIR) vgcore.*
-
-trash:
-	rm -rf $(TRASH)
+	rm -rf $(BINS) $(BUILDDIR)

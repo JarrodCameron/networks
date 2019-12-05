@@ -1,17 +1,15 @@
 # Date:   14/10/19 11:05
+# Author: Jarrod Cameron (z5210220)
 
 # Tmux window names
 SESSION="Networks"
-WINNAME="z5210220"
+WINNAME="Author: Jarrod Cameron (z521022)"
 
 # Args for client/server
 SERVER_PORT="1024"
 BLOCK_DURATION="0"
 TIMEOUT="600"
-IP_ADDR="127.0.0.1"
-
-# Flags for valgrind
-VAL="valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all"
+HOST_NAME="localhost"
 
 # Delay between each connection to ensure the right order
 DELAY=0.3
@@ -41,18 +39,13 @@ port="$(get_free_portnum)"
 
 # Command to run in the tmux session
 server_cmd="./server $port $BLOCK_DURATION $TIMEOUT"
-client_cmd="./client $IP_ADDR $port"
+client_cmd="./client $HOST_NAME $port"
 
-if [ "$1" = "comp" ]; then
-    clear
-    make full
-    exit 0
-elif [ "$1" = "val" ]; then
-    server_cmd="$VAL $server_cmd"
-    client_cmd="sleep 1 && $VAL $client_cmd"
-elif [ "$1" = "ip" ]; then
+if [ "$1" = "ip" ]; then
     printf "IPv4: "
     hostname -i
+    printf "Hostname: "
+    hostname
     exit 0
 elif [ -n "$1" ]; then
     echo "Unknown argument: $1"
@@ -67,7 +60,7 @@ echo '  Stats:'
 echo "    PORT: $port"
 echo "    BLOCK_DURATION: $BLOCK_DURATION"
 echo "    TIMEOUT: $TIMEOUT"
-echo "    IP_ADDR: $IP_ADDR"
+echo "    HOST_NAME: $HOST_NAME"
 echo
 echo "  SERVER:"
 echo "    $server_cmd"

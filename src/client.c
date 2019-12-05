@@ -5,19 +5,24 @@
  *                                         *
  *******************************************/
 
-#include <arpa/inet.h>
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdbool.h>
 
 #include "clogin.h"
 #include "header.h"
 #include "ptop.h"
 #include "util.h"
 #include "list.h"
+
+#define DEFAULT_HINTS (struct addrinfo) { \
+    .ai_family   = AF_INET,     /* ipv4 only */         \
+    .ai_socktype = SOCK_STREAM, /* Use TCP */           \
+    .ai_flags    = AI_PASSIVE,  /* Fill in sin_addr */  \
+}
 
 struct {
     struct sockaddr_in sockaddr;
@@ -58,6 +63,7 @@ static const char *get_first_non_space(const char *line);
 static int deploy_command(char cmd[MAX_COMMAND]);
 static void run_client (void);
 static int cmd_logout(struct scmd_payload *scmd);
+static int host_to_sockaddr(const char *hostname, struct sockaddr_in *addr);
 static int handle_broad_logoff(void);
 
 /* The name of each command and the respective handle */
@@ -78,8 +84,26 @@ static struct {
 /* Print usage and exit */
 static void usage (void)
 {
-    fprintf (stderr, "Usage: ./client <server_ip> <server_port>\n");
+    fprintf (stderr, "Usage: ./client <host_name> <server_port>\n");
     exit (1);
+}
+
+/* Convert the hostname to an IPv4 address and return it in "addr", return -1
+ * on error, otherwise return 0 */
+static int host_to_sockaddr(const char *hostname, struct sockaddr_in *addr)
+{
+    struct addrinfo *res = NULL;
+    struct addrinfo hints = DEFAULT_HINTS;
+
+    int status = getaddrinfo(hostname, NULL, &hints, &res);
+    if (status < 0) {
+        fprintf(stderr, "Error: %s\n", gai_strerror(status));
+        return -1;
+    }
+
+    *addr = *(struct sockaddr_in *) res->ai_addr;
+    freeaddrinfo(res);
+    return 0;
 }
 
 /* Initialise the arguments, return -1 on error */
@@ -88,8 +112,7 @@ static int init_args (const char *ip_addr, const char *port)
     unsigned short dummy;
     struct sockaddr_in server_address = {0};
 
-    // string to legin ipv4
-    if (inet_pton(AF_INET, ip_addr, &(server_address.sin_addr)) != 1)
+    if (host_to_sockaddr(ip_addr, &server_address) < 0)
         return -1;
 
     sscanf(port, "%hu", &dummy);
