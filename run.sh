@@ -48,8 +48,9 @@ if [ "$1" = "ip" ]; then
     hostname
     exit 0
 elif [ -n "$1" ]; then
-    echo "Unknown argument: $1"
-    echo "Usage: bash ./run.sh [ip]"
+    echo "Unknown argument: $1" >&2
+    echo "Usage: bash ./run.sh [ip]" >&2
+    exit 1
 fi
 
 clear
