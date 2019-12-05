@@ -5,7 +5,7 @@ After the server is running each _client_ can log in and send messages
 via the server. A peer to peer connection can be established after logging
 in to communicate to other clients.
 
-Internal implementation can be seen in `report.pdf`.
+Internal implementation can be seen in `docs/report.pdf`.
 
 ## Compilation
 
@@ -75,4 +75,4 @@ is initialised before the clients connect.
 
 Obligatory screen shot:
 
-![](screenshot.png)
+![](docs/screenshot.png)
