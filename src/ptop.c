@@ -51,7 +51,7 @@ static int sock_startprivate(struct ptop *p, struct tokens *t);
 struct ptop {
     char peer_name[MAX_UNAME];  /* The client we are talking to */
 
-    /* Retreived from server */
+    /* Retrieved from server */
     unsigned short peer_port;   /* The port number of the peer */
     struct in_addr peer_addr;   /* IP address of the peer */
 
@@ -289,7 +289,7 @@ static int sock_private(struct ptop *ptop, struct tokens *toks)
     return 0;
 }
 
-/* This is used to handle when another client wants to cancle the private
+/* This is used to handle when another client wants to cancel the private
  * connection with this client */
 static int sock_stopprivate(struct ptop *ptop, UNUSED struct tokens *toks)
 {
@@ -330,7 +330,7 @@ static const char *get_first_non_space(const char *line)
     return ret;
 }
 
-/* Deploy the commannd to the network */
+/* Deploy the command to the network */
 static int deploy_ptop_cmd(char *cmd, struct tokens *toks)
 {
     unsigned int i;

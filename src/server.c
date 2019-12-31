@@ -251,7 +251,7 @@ static int logout_service(int sock, UNUSED struct tokens *t, struct user *user)
 }
 
 /* This is called when the user wants to start a private connections and
- * needs details about the respective user. This inclused port number
+ * needs details about the respective user. This includes port number
  * and IPv4 address */
 static int startprivate_service(int sock, struct tokens *toks, struct user *user)
 {

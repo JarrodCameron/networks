@@ -2,7 +2,7 @@
 #define CLOGIN_H
 
 /* This contains all of the logic and implementation to log into the server
- * and handling any interataction during the login process for the client to
+ * and handling any interaction during the login process for the client to
  * the server.
  *
  * This is the counter part to the slogin.* files

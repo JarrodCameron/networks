@@ -18,7 +18,7 @@
 struct connection {             /* Contains all information for
                                  * client/server communications */
     int sock;                   /* Socket for this connection */
-    struct cic_payload cic;     /* Data deilivered by client */
+    struct cic_payload cic;     /* Data delivered by client */
     pthread_t *thread;          /* The thread handling this connection */
     struct user *user;          /* The user on the other side */
     struct lock *lock;          /* Just in case... shouldn't need it */
@@ -45,7 +45,7 @@ struct connection *conn_init(void)
 
     *conn = (struct connection) {0};
 
-    // To represent unitialised connection
+    // To represent uninitialised connection
     conn->sock = -1;
 
     conn->lock = lock_init();
@@ -357,7 +357,7 @@ static int send_broadcast_msg
     return 0;
 }
 
-/* Return true if the "user" is valid enought to broadcast the the user on
+/* Return true if the "user" is valid enough to broadcast the the user on
  * the "conn" side */
 static bool valid_broadcast(struct connection *conn, struct user *user)
 {

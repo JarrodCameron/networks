@@ -19,14 +19,14 @@ static const char *cmd_names[] = {
     "logout", "startprivate", "private", "stopprivate",
 };
 
-/* The max number of seperators for cmd_names[i] */
+/* The max number of separators for cmd_names[i] */
 static int cmd_max_seps[] = {
     3, 2, 2, 1, 2, 2, 1, 2, 3, 2,
 };
 
 _Static_assert(
     ARRSIZE(cmd_names) == ARRSIZE(cmd_max_seps),
-    "Seperators and names don't match!"
+    "Separators and names don't match!"
 );
 
 /* Helper functions */
@@ -95,7 +95,7 @@ int tokenise(const char *line, struct tokens **toks)
 
     int max_seps = get_max_seps(temp);
     if (max_seps < 0) {
-        // Command doesnt exist
+        // Command doesn't exist
         tokens_free(tokens);
         free(temp);
         return 0;
@@ -157,7 +157,7 @@ static const char *get_first_non_space(const char *line)
     return ret;
 }
 
-/* Return the max number of seperators for a line. If the line is not a valid
+/* Return the max number of separators for a line. If the line is not a valid
  * command the NULL is returned */
 static int get_max_seps(const char *line)
 {

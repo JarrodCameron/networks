@@ -510,7 +510,7 @@ static bool valid_whoelse(struct user *curr_user, struct user *exception)
 }
 
 /* Taking two users as void pointers, return 0 if they are equals, otherwise
- * 1 is return (to inidicate they are different) */
+ * 1 is return (to indicate they are different) */
 static int name_cmp(void *u1, void *u2)
 {
     return strncmp(u1, u2, MAX_UNAME);

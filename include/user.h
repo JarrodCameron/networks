@@ -71,7 +71,7 @@ enum status_code user_unblock
     const char *victim
 );
 
-/* Return true if the sender is on the reciver's block list, otherwise
+/* Return true if the sender is on the receiver's block list, otherwise
  * false is returned */
 bool user_on_blocklist (struct user *reciver, struct user *sender);
 
@@ -84,7 +84,7 @@ bool user_equal(struct user *user1, struct user *user2);
 /* Return the number of items in the user's backlog */
 int user_get_backlog_len(struct user *);
 
-/* Pop a backloged item of the users backlog, if there are no items left then
+/* Pop a backlogged item of the users backlog, if there are no items left then
  * NULL is returned */
 struct sdmm_payload *user_pop_backlog(struct user *);
 

@@ -42,7 +42,7 @@ struct iter *iter_init
     void *first
 );
 
-/* Free the iterator from memroy */
+/* Free the iterator from memory */
 void iter_free(struct iter *iter);
 
 /* Set the iterator to the next item in the list */

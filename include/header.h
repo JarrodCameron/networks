@@ -12,8 +12,8 @@
 /**************************************************************************
  * The header MUST be sent on every transmissions. It communicates to the *
  * receiver what task is going to take place and how much data is being   *
- * sent. The client id uniqly idntifies the client, this prevents having  *
- * to send the username (or unique identifier) each time                  *
+ * sent. The client id uniquely identifies the client, this prevents      *
+ * having to send the username (or unique identifier) each time           *
  **************************************************************************/
 
 enum task_id {
@@ -54,7 +54,7 @@ enum task_id {
     server_unblock_user  = 24,  /* Response to unblocking a user */
 
     client_broad_logoff  = 25,  /* */
-    server_broad_logoff  = 26,  /* Broad cast tthat a user has logged off */
+    server_broad_logoff  = 26,  /* Broad cast that a user has logged off */
 
     client_start_private = 27,  /* */
     server_start_private = 28,  /* The info to start private comms */
@@ -72,11 +72,11 @@ struct header {
     uint32_t data_len;      /* How many bytes are being transmitted */
 };
 
-/***************************************************************************
- * Everthing below this line is predifined payloads for when the server or *
- * client communicate to this each other. These data structures need to be *
- * shared to preferve the order of the bytes when being sent/received      *
- ***************************************************************************/
+/****************************************************************************
+ * Everything below this line is predefined payloads for when the server or *
+ * client communicate to this each other. These data structures need to be  *
+ * shared to preserve the order of the bytes when being sent/received       *
+ ****************************************************************************/
 
 struct cic_payload {            /* task = client_init_conn */
     enum status_code code;      /* First code, should be init_success */
@@ -108,7 +108,7 @@ struct ccmd_payload {           /* task = client_command */
 
 struct scmd_payload {           /* task = server_command */
     enum status_code code;      /* The code to send to the server */
-    uint64_t extra;             /* Purpose interprited by client */
+    uint64_t extra;             /* Purpose interpreted by client */
 };
 
 struct cw_payload {             /* task = client_whoelse */

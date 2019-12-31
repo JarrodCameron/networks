@@ -413,7 +413,7 @@ static void cmd_help(void)
 {
     printf("All commands: \n");
     printf("  message <user> <message>\n");
-    printf("  broadcase <message>\n");
+    printf("  broadcast <message>\n");
     printf("  whoelse\n");
     printf("  whoelsesince <time>\n");
     printf("  block <user>\n");
@@ -449,7 +449,7 @@ static int cmd_block(UNUSED struct scmd_payload *scmd)
             return 0;
 
         default:
-            panic("Unkown sbu_payload, received: \"%s\"(%d)\n",
+            panic("Unknown sbu_payload, received: \"%s\"(%d)\n",
                 code_to_str(sbu.code), sbu.code
             );
 
@@ -481,7 +481,7 @@ static int cmd_unblock(UNUSED struct scmd_payload *scmd)
             return 0;
 
         default:
-            panic("Unkown suu_payload, received: \"%s\"(%d)\n",
+            panic("Unknown suu_payload, received: \"%s\"(%d)\n",
                 code_to_str(suu.code), suu.code
             );
 
@@ -696,7 +696,7 @@ static int deploy_command(char cmd[MAX_COMMAND])
     panic("The server should of returned \"bad_command\"!\n");
 }
 
-/* Select a varaible number of sockets at the same time, return -1 on error
+/* Select a variable number of sockets at the same time, return -1 on error
  * otherwise zero is returned */
 static int multi_select(fd_set *read_set)
 {
@@ -715,7 +715,7 @@ static void fill_fd_set(fd_set *read_set)
     ptop_fill_fd_set(read_set);
 }
 
-/* Return the large file descriptor in the set of file descritpors */
+/* Return the large file descriptor in the set of file descriptors */
 static int get_max_fd(fd_set *read_set)
 {
     int max_fd = -1;
@@ -799,7 +799,7 @@ int main (int argc, char **argv)
 
     if (init_connection () < 0) {
         fprintf(stderr, "Failed to initialise connection\n");
-        fprintf(stderr, "Did you use the right IP addres and port?\n");
+        fprintf(stderr, "Did you use the right IP address and port?\n");
         return 1;
     }
 

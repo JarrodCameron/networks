@@ -23,7 +23,7 @@ void list_free (struct list *list, void (*f)(void*));
  */
 void *list_rm (struct list *list, void *item, int (*cmp)(void*, void*));
 
-/* Iterate over all items in the list appllying func(item, arg)
+/* Iterate over all items in the list applying func(item, arg)
  * "item" is the item passed via list_add
  * "arg" is passed to func() for each node */
 void list_traverse (
@@ -47,7 +47,7 @@ int list_len(struct list *list);
  * which item that is popped of is undefined */
 void *list_pop(struct list *list);
 
-/* Return true if the list is empty, otherwise reutrn false */
+/* Return true if the list is empty, otherwise return false */
 bool list_is_empty(struct list *list);
 
 /* Create an iterator to traverse the list */

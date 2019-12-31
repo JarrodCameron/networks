@@ -182,7 +182,7 @@ MAKE_RECV(ptop_command, pcmd)
 MAKE_RECV(ptop_init_conn, pic)
 MAKE_RECV(ptop_handshake, phs)
 
-/* Simplify the send process for dummy stucts */
+/* Simplify the send process for dummy structs */
 #define MAKE_SEND_DUMMY(HEAD,TYPE)          \
 int send_payload_ ## TYPE (int sock)        \
 {                                           \

@@ -1,7 +1,7 @@
 #ifndef PTOP_H
 #define PTOP_H
 
-/* This is used to handle pretty much everything regardding ptop (peer to peer)
+/* This is used to handle pretty much everything regarding ptop (peer to peer)
  * connection between clients and sometimes the server */
 
 /* Defined in ptop.c */
@@ -16,11 +16,11 @@ bool ptop_is_cmd(char cmd[MAX_MSG_LENGTH]);
  * -1 is returned, otherwise 0 is returned */
 int ptop_handle_cmd(char cmd[MAX_MSG_LENGTH]);
 
-/* A new connection has been created and needs to be accepted. The appropate
- * stuff to init the connectino is done here */
+/* A new connection has been created and needs to be accepted. The appropriate
+ * stuff to init the connection is done here */
 int ptop_accept(void);
 
-/* Update the read set with the appropriate file descritpors */
+/* Update the read set with the appropriate file descriptors */
 void ptop_fill_fd_set(fd_set *read_set);
 
 /* Read all of the appropriate sockets from the read set and handle them

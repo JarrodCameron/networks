@@ -19,7 +19,7 @@ void *queue_pop (struct queue *queue);
  * have been pushed to the list */
 void queue_free(struct queue *queue, void (*f)(void*));
 
-/* Return true if the queue contains zero items, otherwise reutrn false */
+/* Return true if the queue contains zero items, otherwise return false */
 bool queue_is_empty(struct queue *queue);
 
 /* Return the length of the queue */

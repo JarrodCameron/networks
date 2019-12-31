@@ -53,7 +53,7 @@ int conn_broad_log_on(struct list *conns, struct user *);
  * return 0 */
 int conn_broad_log_off(struct list *conns, struct user *);
 
-/* Broadcast "msg" to all active connections, execpted for the "user" (since
+/* Broadcast "msg" to all active connections, except for the "user" (since
  * it is pointless to send the same message to them self) */
 int conn_broad_msg(struct list *conns, struct user *, char msg[MAX_MSG_LENGTH]);
 
