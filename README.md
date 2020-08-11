@@ -1,4 +1,4 @@
-# COMP3331 - Major Assignment
+# Client/Server Networking Application
 
 This is a client/server and peer to peer network application
 for sending messages.
